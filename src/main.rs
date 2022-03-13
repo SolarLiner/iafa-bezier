@@ -1,7 +1,8 @@
 use std::time::Instant;
 
-use anyhow::Context;
+use anyhow::{Context, Error};
 use bytemuck::{Pod, Zeroable};
+use glam::{vec3, Vec3};
 use glutin::{
     dpi::PhysicalSize,
     event::{Event, StartCause, WindowEvent},
@@ -9,15 +10,27 @@ use glutin::{
     window::WindowBuilder,
     ContextBuilder,
 };
+use tracing::Level;
 use tracing_subscriber::EnvFilter;
+
 use violette_low::{
     base::bindable::BindableExt,
     buffer::{Buffer, BufferKind},
-    framebuffer::{Backbuffer, ClearBuffer},
+    framebuffer::{ClearBuffer, Framebuffer},
     program::{Linked, Program},
     texture::{Texture, TextureUnit},
     vertex::{AsVertexAttributes, DrawMode, VertexArray},
 };
+
+use crate::camera::Camera;
+use crate::material::Material;
+use crate::mesh::Mesh;
+use crate::transform::Transform;
+
+mod camera;
+mod material;
+mod mesh;
+mod transform;
 
 #[derive(Debug, Clone, Copy, Pod, Zeroable)]
 #[repr(C, packed)]
@@ -37,7 +50,7 @@ impl Vertex {
     }
 }
 
-#[rustfmt::skip]
+/*#[rustfmt::skip]
 const VERTICES: [Vertex; 4] = [
     Vertex::new([ 0.5,  0.5], [1.0, 0.0, 0.0], [1.0, 1.0]),
     Vertex::new([ 0.5, -0.5], [0.0, 1.0, 0.0], [1.0, 0.0]),
@@ -50,73 +63,49 @@ const INDICES: [u32; 6] = [
     0, 1, 3,
     1, 2, 3,
 ];
-
+*/
 struct App {
-    program: Program<Linked>,
-    texture1: Texture<[u8; 3]>,
-    texture2: Texture<[u8; 4]>,
-    vertex_array: VertexArray,
-    index_buffer: Buffer<u32>,
+    camera: Camera,
+    mesh: Mesh,
+    material: Material,
 }
 
 impl App {
     #[tracing::instrument]
     pub fn new() -> anyhow::Result<Self> {
-        let mut program = Program::load(
-            "assets/shaders/triangle.vert.glsl",
-            Some("assets/shaders/triangle.frag.glsl"),
-            None::<&'static str>,
-        )
-        .context("Cannot create shader program")?;
-        program.validate()?;
-        let vertex_buffer = Buffer::with_data(BufferKind::Array, &VERTICES)?;
-        let index_buffer = Buffer::with_data(BufferKind::ElementArray, &INDICES)?;
-        let mut vertex_array = VertexArray::new(DrawMode::TrianglesList);
-        vertex_array.bind()?.with_vertex_buffer(vertex_buffer)?;
-        let mut texture1 = Texture::from_image({
-            let img = image::open("assets/textures/wall.jpg").context("Cannot load image file")?;
-            img.to_rgb8()
-        })
-        .context("Cannot load texture")?;
-        texture1.set_texture_unit(TextureUnit(0));
-
-        let mut texture2 = Texture::from_image({
-            image::open("assets/textures/awesomeface.png")
-                .context("Cannot load image file")?
-                .to_rgba8()
-        })?;
-        texture2.set_texture_unit(TextureUnit(1));
-
-        program.with_binding(|p| {
-            p.uniform("texture1").unwrap().set(TextureUnit(0))?;
-            p.uniform("texture2").unwrap().set(TextureUnit(1))?;
-            Ok(())
-        })?;
+        let mesh = Mesh::uv_sphere(1.0, 32, 32)?;
+        let material = Material::create()?;
+        let camera = Camera {
+            transform: Transform::translation(vec3(0., 1., -4.)).looking_at(Vec3::ZERO),
+            ..Default::default()
+        };
         Ok(Self {
-            program,
-            texture1,
-            texture2,
-            vertex_array,
-            index_buffer,
+            camera,
+            mesh,
+            material,
         })
     }
 
     pub fn resize(&self, size: PhysicalSize<u32>) {
-        Backbuffer.viewport(0, 0, size.width as _, size.height as _);
+        Framebuffer::backbuffer()
+            .bind()
+            .unwrap()
+            .viewport(0, 0, size.width as _, size.height as _);
     }
 
     #[tracing::instrument(skip_all)]
     pub fn render(&mut self) {
-        let framebuffer = Backbuffer;
-        framebuffer.clear_color([0.1, 0.2, 0.2]);
-        framebuffer.clear(ClearBuffer::COLOR);
+        let mut backbuffer = Framebuffer::backbuffer();
+        let mut framebuffer = backbuffer.bind().unwrap();
+        framebuffer.clear_color([0.1, 0.2, 0.2, 1.0]);
+        framebuffer.do_clear(ClearBuffer::COLOR);
 
-        let pbinding = self.program.bind().unwrap();
-        let mut vbinding = self.vertex_array.bind().unwrap();
-        let ibinding = self.index_buffer.bind().unwrap();
-        let _tv1 = self.texture1.bind().unwrap();
-        let _tv2 = self.texture2.bind().unwrap();
-        vbinding.draw_indexed(&pbinding, &ibinding);
+        match self.material
+            .draw_mesh(&mut framebuffer, &self.camera, &mut self.mesh)
+            .context("Cannot draw mesh on material") {
+            Ok(()) => {}
+            Err(err) => {tracing::warn!("Silenced error: {}", err)}
+        }
     }
 }
 
@@ -135,11 +124,14 @@ fn main() -> anyhow::Result<()> {
         .context("Cannot create context")?;
 
     violette_low::load_with(|sym| context.get_proc_address(sym));
-    violette_low::debug::set_message_callback(|debug| {
-        eprintln!(
-            "OpenGL {:?} {:?} ({:?}): {}",
-            debug.source, debug.r#type, debug.severity, debug.message
-        )
+    violette_low::debug::set_message_callback(|data| {
+        use violette_low::debug::CallbackSeverity::*;
+        match data.severity {
+            Notification => tracing::debug!(target: "gl", source=?data.source, message=%data.message, r#type=?data.r#type),
+            Low => tracing::info!(target: "gl", source=?data.source, message=%data.message, r#type=?data.r#type),
+            Medium => tracing::warn!(target: "gl", source=?data.source, message=%data.message, r#type=?data.r#type),
+            High => tracing::error!(target: "gl", source=?data.source, message=%data.message, r#type=?data.r#type),
+        };
     });
 
     let mut app = App::new().context("Cannot create application")?;

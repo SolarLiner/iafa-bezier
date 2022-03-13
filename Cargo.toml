@@ -9,8 +9,9 @@ members = ["violette/violette-low"]
 [dependencies]
 anyhow = "1.0.53"
 bytemuck = { version = "1.7.3", features = ["derive"] }
+glam = { version = "0.20.2", features = ["bytemuck"] }
 glutin = "0.28.0"
 image = "0.24.1"
 tracing = "0.1.31"
 tracing-subscriber = { version = "0.3.9", features = ["env-filter"] }
-violette-low = { path = "./violette/violette-low" }
+violette-low = { path = "./violette/violette-low", features = ["uniforms-glam", "vertex-glam"] }
