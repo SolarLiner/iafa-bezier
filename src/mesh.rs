@@ -1,14 +1,15 @@
 use anyhow::Context;
 use glam::{vec2, vec3, Vec2, Vec3};
 
-use violette_low::base::bindable::BindableExt;
-use violette_low::buffer::BufferKind;
-use violette_low::framebuffer::{BoundFB, Framebuffer};
-use violette_low::vertex::DrawMode;
 use violette_low::{
+    base::bindable::BindableExt,
     buffer::Buffer,
-    vertex::{AsVertexAttributes, VertexArray, VertexAttributes},
+    buffer::BufferKind,
+    framebuffer::BoundFB,
+    vertex::DrawMode,
+    vertex::{AsVertexAttributes, VertexArray},
 };
+
 use crate::transform::Transform;
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -31,29 +32,29 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn uv_sphere(radius: f32, u_size: usize, v_size: usize) -> anyhow::Result<Self> {
+    pub fn uv_sphere(radius: f32, nlon: usize, nlat: usize) -> anyhow::Result<Self> {
         use std::f32::consts::*;
-        let mut vertices = Vec::with_capacity(u_size * v_size + 2);
-        let num_triangles = u_size * v_size * 2;
+        let mut vertices = Vec::with_capacity(nlon * nlat + 2);
+        let num_triangles = nlon * nlat * 2;
         let mut indices = Vec::with_capacity(num_triangles * 3);
 
-        let lat_step = PI / v_size as f32;
-        let lon_step = TAU / u_size as f32;
+        let lat_step = PI / nlat as f32;
+        let lon_step = TAU / nlon as f32;
 
         vertices.push(Vertex {
             position: Vec3::Y,
-            uv: vec2(0.5, 0.0),
+            uv: vec2(0.5, 1.0),
             normal: Vec3::Y,
         });
-        for j in 0..v_size {
-            let phi = j as f32 * lon_step;
-            for i in 0..u_size {
-                let theta = i as f32 * lat_step;
+        for j in 1..nlat {
+            let phi = FRAC_PI_2 - j as f32 * lat_step;
+            for i in 0..nlon {
+                let theta = i as f32 * lon_step;
                 let (sphi, cphi) = phi.sin_cos();
-                let sth = theta.sin();
-                let normal = vec3(cphi * sth, sphi, cphi * sth);
+                let (sth, cth) = theta.sin_cos();
+                let normal = vec3(cphi * cth, sphi, cphi * sth);
                 let position = normal * radius;
-                let uv = vec2(phi / TAU, theta / PI);
+                let uv = vec2(i as f32 / nlon as f32, 1. - j as f32 / nlat as f32);
                 vertices.push(Vertex {
                     position,
                     normal,
@@ -61,23 +62,37 @@ impl Mesh {
                 })
             }
         }
+        vertices.push(Vertex {
+            position: -Vec3::Y,
+            uv: vec2(0.5, 0.0),
+            normal: -Vec3::Y,
+        });
 
         // Indices: first row connected to north pole
-        for i in 0..u_size {
+        for i in 0..nlon {
             indices.extend([0, i + 1, i + 2])
         }
 
         // Triangles strips
-        for j in 0..v_size - 1 {
-            let row_start = j * u_size + 1;
-            for i in 0..u_size {
-                let first_corner = row_start + i;
-                indices.extend([
-                    first_corner,
-                    first_corner + u_size + 1,
-                    first_corner + u_size,
-                ]);
+        for lat in 0..nlat - 1 {
+            let row_start = lat * nlon + 1;
+            for lon in 0..nlon {
+                let corner_tl = row_start + lon;
+                let corner_tr = corner_tl + 1;
+                let corner_bl = corner_tl + nlon;
+                let corner_br = corner_bl + 1;
+                // First face (top-left)
+                indices.extend([corner_tl, corner_bl, corner_tr]);
+                // Second face (bottom-right)
+                indices.extend([corner_bl, corner_br, corner_tr]);
             }
+        }
+
+        // South pole
+        let last_idx = vertices.len() - 1;
+        let bottom_row = (nlat - 1) * nlon + 1;
+        for i in 0..nlon {
+            indices.extend([last_idx, bottom_row + i, bottom_row + i + 1]);
         }
 
         let indices = indices.into_iter().map(|i| i as u32).collect::<Vec<_>>();
@@ -85,17 +100,20 @@ impl Mesh {
             transform: Transform::default(),
             array: {
                 let mut vao = VertexArray::new();
-                vao.with_binding(|vao| {
-                    vao.with_vertex_buffer(Buffer::with_data(BufferKind::Array, &vertices)?)
-                })?;
+                vao.bind()?
+                    .with_vertex_buffer(Buffer::with_data(BufferKind::Array, &vertices)?)?;
                 vao
             },
             indices: Buffer::with_data(BufferKind::ElementArray, &indices)?,
         })
     }
 
+    pub fn reset_transform(&mut self) {
+        self.transform = Transform::default();
+    }
+
     pub fn transformed(mut self, transform: Transform) -> Self {
-        self.transform = transform;
+        self.transform = transform * self.transform;
         self
     }
 

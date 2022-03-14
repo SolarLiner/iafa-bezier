@@ -13,5 +13,6 @@ glam = { version = "0.20.2", features = ["bytemuck"] }
 glutin = "0.28.0"
 image = "0.24.1"
 tracing = "0.1.31"
+tracing-flame = "0.2.0"
 tracing-subscriber = { version = "0.3.9", features = ["env-filter"] }
 violette-low = { path = "./violette/violette-low", features = ["uniforms-glam", "vertex-glam"] }
