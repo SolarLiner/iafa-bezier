@@ -1,1 +1,6 @@
 /target
+perf.data
+perf.data.old
+*.svg
+tracing.folded
+log.json

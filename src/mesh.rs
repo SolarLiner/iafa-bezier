@@ -1,13 +1,13 @@
 use anyhow::Context;
-use glam::{vec2, vec3, Vec2, Vec3};
+use glam::{vec2, Vec2, vec3, Vec3};
 
 use violette_low::{
     base::bindable::BindableExt,
     buffer::Buffer,
     buffer::BufferKind,
     framebuffer::BoundFB,
-    vertex::DrawMode,
     vertex::{AsVertexAttributes, VertexArray},
+    vertex::DrawMode,
 };
 
 use crate::transform::Transform;
@@ -118,11 +118,18 @@ impl Mesh {
     }
 
     pub fn draw(&mut self, framebuffer: &mut BoundFB) -> anyhow::Result<()> {
-        let _vaobind = self.array.bind()?;
+        let mut _vaobind = self.array.bind()?;
         let ibuf_binding = self.indices.bind()?;
         framebuffer
-            .draw_elements(DrawMode::TrianglesList, &ibuf_binding, ..)
+            .draw_elements(&mut _vaobind, &ibuf_binding, DrawMode::TrianglesList, ..)
             .context("Cannot draw mesh")?;
+        Ok(())
+    }
+
+    pub fn wireframe(&mut self, framebuffer: &mut BoundFB) -> anyhow::Result<()> {
+        let mut _vaobind = self.array.bind()?;
+        let ibuf_binding = self.indices.bind()?;
+        framebuffer.draw_elements(&mut _vaobind, &ibuf_binding, DrawMode::Wireframe, ..).context("Cannot draw mesh")?;
         Ok(())
     }
 }

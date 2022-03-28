@@ -9,8 +9,10 @@ use violette_low::program::{Linked, Program};
 use violette_low::shader::{Shader, ShaderStage};
 use violette_low::texture::{Texture, TextureUnit};
 
-use crate::camera::Camera;
-use crate::Mesh;
+use crate::{
+    camera::Camera,
+    mesh::Mesh
+};
 
 pub enum TextureSlot<const N: usize> {
     Texture(Texture<[f32; N]>),
