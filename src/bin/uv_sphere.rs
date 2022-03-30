@@ -1,18 +1,15 @@
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+
+use std::time::{Duration};
 
 use anyhow::Context;
-use bytemuck::{Pod, Zeroable};
+
 use glam::{vec3, Quat, Vec2, Vec3};
 use glutin::event::{ElementState, MouseButton};
 use glutin::{
     dpi::PhysicalSize,
-    event::{Event, StartCause, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
-    ContextBuilder,
+    event::{WindowEvent},
 };
-use tracing_flame::FlameLayer;
+
 use iafa_ig_projet::{
     Application,
     camera::{Camera, Projection},
@@ -24,11 +21,8 @@ use iafa_ig_projet::{
 use violette_low::{
     framebuffer::{DepthTestFunction, FramebufferFeature},
     base::bindable::BindableExt,
-    buffer::{Buffer, BufferKind},
     framebuffer::{ClearBuffer, Framebuffer},
-    program::{Linked, Program},
-    texture::{Texture, TextureUnit},
-    vertex::{AsVertexAttributes, DrawMode, VertexArray}
+    texture::{Texture}
 };
 
 struct App {
@@ -102,7 +96,7 @@ impl Application for App {
         }
     }
     #[tracing::instrument(target = "App::tick", skip(self))]
-    fn tick(&self, dt: Duration) {
+    fn tick(&mut self, dt: Duration) {
         self.mesh.transform.rotation *= Quat::from_rotation_y(dt.as_secs_f32());
         self.camera.transform.rotation = self.camera.transform.rotation.lerp(self.rot_target, 1e-2);
     }

@@ -1,5 +1,7 @@
 use std::ops::{Deref, DerefMut};
+
 use glam::{Vec2, Vec3};
+
 
 #[derive(Debug, Clone)]
 pub struct BezierCurve<V> {
@@ -59,5 +61,20 @@ impl Lerp<f32> for Vec2 {
 impl Lerp<f32> for Vec3 {
     fn lerp(self, other: Self, s: f32) -> Self {
         Vec3::lerp(self, other, s)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use glam::{vec2, Vec2};
+    use test_log::test;
+    use super::BezierCurve;
+
+    #[test]
+    fn simple_curve() {
+        let curve = BezierCurve::new([Vec2::ZERO, Vec2::X]);
+        assert_eq!(curve.get_point(0.), Vec2::ZERO);
+        assert_eq!(curve.get_point(1.), Vec2::X);
+        assert_eq!(curve.get_point(0.5), vec2(0.5, 0.0));
     }
 }

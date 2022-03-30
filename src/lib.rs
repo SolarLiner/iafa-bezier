@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 use std::fs::File;
-use std::sync::RwLock;
+
 
 use anyhow::Context;
 use glutin::event::Event;

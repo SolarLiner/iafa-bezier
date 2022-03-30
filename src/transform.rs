@@ -22,7 +22,7 @@ impl Default for Transform {
 impl Mul<Self> for Transform {
     type Output = Self;
 
-    fn mul(self, mut rhs: Self) -> Self::Output {
+    fn mul(self, rhs: Self) -> Self::Output {
         let result_mat = self.matrix() * rhs.matrix();
         Self::from_matrix(result_mat)
     }

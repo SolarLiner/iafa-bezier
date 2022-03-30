@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet};
 use std::path::Path;
 
 use anyhow::Context;
@@ -85,7 +85,7 @@ impl ShaderBuilder {
             .version_line
             .into_iter()
             .chain(self.defines.into_iter().map(|v| format!("#define {}", v)))
-            .chain(self.sources.into_iter().map(|v| v.to_string()))
+            .chain(self.sources.into_iter())
             .reduce(|mut s, v| {
                 s.push_str("\n\n");
                 s.push_str(&v);

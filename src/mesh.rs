@@ -32,6 +32,17 @@ pub struct Mesh {
 }
 
 impl Mesh {
+    pub fn new(vertices: impl IntoIterator<Item=Vertex>, indices: impl IntoIterator<Item=u32>) -> anyhow::Result<Self> {
+        let vertices = vertices.into_iter().collect::<Vec<_>>();
+        let vertices = Buffer::with_data(BufferKind::Array, &vertices)?;
+        let indices = indices.into_iter().collect::<Vec<_>>();
+        let indices = Buffer::with_data(BufferKind::ElementArray, &indices)?;
+
+        let mut vao = VertexArray::new();
+        vao.with_binding(|vao| vao.with_vertex_buffer(vertices))?;
+        Ok(Self { transform: Transform::default(), array: vao, indices })
+    }
+
     pub fn uv_sphere(radius: f32, nlon: usize, nlat: usize) -> anyhow::Result<Self> {
         use std::f32::consts::*;
         let mut vertices = Vec::with_capacity(nlon * nlat + 2);
@@ -95,17 +106,7 @@ impl Mesh {
             indices.extend([last_idx, bottom_row + i, bottom_row + i + 1]);
         }
 
-        let indices = indices.into_iter().map(|i| i as u32).collect::<Vec<_>>();
-        Ok(Self {
-            transform: Transform::default(),
-            array: {
-                let mut vao = VertexArray::new();
-                vao.bind()?
-                    .with_vertex_buffer(Buffer::with_data(BufferKind::Array, &vertices)?)?;
-                vao
-            },
-            indices: Buffer::with_data(BufferKind::ElementArray, &indices)?,
-        })
+        Self::new(vertices, indices.into_iter().map(|i| i as u32))
     }
 
     pub fn reset_transform(&mut self) {
@@ -129,7 +130,7 @@ impl Mesh {
     pub fn wireframe(&mut self, framebuffer: &mut BoundFB) -> anyhow::Result<()> {
         let mut _vaobind = self.array.bind()?;
         let ibuf_binding = self.indices.bind()?;
-        framebuffer.draw_elements(&mut _vaobind, &ibuf_binding, DrawMode::Wireframe, ..).context("Cannot draw mesh")?;
+        framebuffer.draw_elements(&mut _vaobind, &ibuf_binding, DrawMode::Lines, ..).context("Cannot draw mesh")?;
         Ok(())
     }
 }
