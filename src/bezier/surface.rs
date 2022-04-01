@@ -5,39 +5,39 @@ use crate::mesh::{Mesh, Vertex};
 
 pub struct BezierSurface {
     profile: Vec<BezierCurve<Vec3>>,
+    dtprec: f32,
 }
 
 impl BezierSurface {
     pub fn new(profile: impl IntoIterator<Item = BezierCurve<Vec3>>) -> Self {
         Self {
             profile: profile.into_iter().collect(),
+            dtprec: 1e-4,
         }
+    }
+
+    pub fn with_precision(mut self, prec: f32) -> Self {
+        self.dtprec = prec;
+        self
     }
 
     pub fn get_point(&self, u: f32, v: f32) -> Vec3 {
         BezierCurve::new(self.profile.iter().map(|curve| curve.get_point(u))).get_point(v)
     }
 
-    pub fn get_derivative(&self, u: f32, v: f32) -> Vec3 {
+    pub fn gradient(&self, u: f32, v: f32) -> Vec3 {
         let anchor = self.get_point(u, v);
-        let du = (self.get_point(u + 0.001, v) - anchor) * 1000.;
-        let dv = (self.get_point(u, v + 0.001) - anchor) * 1000.;
-        du + dv
-    }
-
-    pub fn get_normal(&self, u: f32, v: f32) -> Vec3 {
-        let anchor = self.get_derivative(u, v);
-        let ddu = (self.get_derivative(u + 0.001, v) - anchor) * 1000.;
-        let ddv = (self.get_derivative(u, v + 0.001) - anchor) * 1000.;
-        ddu + ddv
+        let du = (self.get_point(u + self.dtprec, v) - anchor)/self.dtprec;
+        let dv = (self.get_point(u, v + self.dtprec) - anchor)/self.dtprec;
+        du+dv
     }
 
     pub fn triangulate(&self, u: usize, v: usize) -> anyhow::Result<Mesh> {
         let mut vertices = Vec::with_capacity(u * v);
-        for j in (0..v).map(|k| k as f32 / v as f32) {
-            for i in (0..u).map(|k| k as f32 / u as f32) {
+        for j in (0..v).map(|k| (k as f32 + 1.) / v as f32) {
+            for i in (0..u).map(|k| (k as f32 + 1.) / u as f32) {
                 let position = self.get_point(i, j);
-                let normal = self.get_normal(i, j);
+                let normal = self.gradient(i, j);
                 let uv = vec2(i, j);
                 vertices.push(Vertex {
                     position,
@@ -48,8 +48,8 @@ impl BezierSurface {
         }
 
         let mut indices = Vec::with_capacity((u - 1) * (v - 1));
-        for j in 0..v-1 {
-            for i in 0..u-1 {
+        for j in 0..v - 1 {
+            for i in 0..u - 1 {
                 let idx = j * u + i;
                 let idx_next = idx + u;
                 indices.extend([

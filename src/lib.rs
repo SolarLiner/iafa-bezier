@@ -1,30 +1,34 @@
+use std::fs::File;
 use std::{
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
-use std::fs::File;
-
 
 use anyhow::Context;
-use glutin::event::Event;
-use glutin::event_loop::ControlFlow;
+use glutin::event::{ElementState, ScanCode, VirtualKeyCode};
+use glutin::window::Fullscreen;
 use glutin::{
     dpi::PhysicalSize,
-    event::{StartCause, WindowEvent},
+    event::Event,
+    event::{KeyboardInput, StartCause, WindowEvent},
+    event_loop::ControlFlow,
     event_loop::EventLoop,
     window::WindowBuilder,
     ContextBuilder,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
+pub mod bezier;
 pub mod camera;
 pub mod material;
 pub mod mesh;
-pub mod transform;
 pub mod screen_draw;
-pub mod bezier;
+pub mod transform;
 
 pub trait Application: Sized + Send + Sync {
+    fn window_features(wb: WindowBuilder) -> WindowBuilder {
+        wb
+    }
     fn new(size: PhysicalSize<f32>) -> anyhow::Result<Self>;
     fn resize(&mut self, size: PhysicalSize<u32>);
     fn interact(&mut self, event: WindowEvent);
@@ -49,7 +53,7 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
         .with(json_layer)
         .init();
     let event_loop = EventLoop::new();
-    let wb = WindowBuilder::new().with_title(title);
+    let wb = App::window_features(WindowBuilder::new()).with_title(title);
     let context = ContextBuilder::new()
         .build_windowed(wb, &event_loop)
         .context("Cannot create context")?;
@@ -109,9 +113,34 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
                 *control_flow = ControlFlow::WaitUntil(next_frame_time);
             }
             Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested => {
+                WindowEvent::CloseRequested
+                | WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        },
+                    ..
+                } => {
                     *control_flow = ControlFlow::Exit;
                     return;
+                }
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            virtual_keycode: Some(VirtualKeyCode::F11),
+                            state: ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => {
+                    if context.window().fullscreen().is_some() {
+                        context.window().set_fullscreen(None)
+                    } else {
+                        context
+                            .window()
+                            .set_fullscreen(Some(Fullscreen::Borderless(None)))
+                    }
                 }
                 WindowEvent::Resized(new_size) => {
                     context.resize(new_size);
@@ -120,10 +149,9 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
                 }
                 event => app.lock().unwrap().interact(event),
             },
-            Event::NewEvents(cause) => match cause {
-                StartCause::ResumeTimeReached { .. } => context.window().request_redraw(),
-                _ => {}
-            },
+            Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
+                context.window().request_redraw()
+            }
             _ => {}
         }
         // app.render();

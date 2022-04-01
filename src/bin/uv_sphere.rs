@@ -1,28 +1,22 @@
-
-use std::time::{Duration};
+use std::time::Duration;
 
 use anyhow::Context;
-
 use glam::{vec3, Quat, Vec2, Vec3};
 use glutin::event::{ElementState, MouseButton};
-use glutin::{
-    dpi::PhysicalSize,
-    event::{WindowEvent},
-};
+use glutin::{dpi::PhysicalSize, event::WindowEvent};
 
 use iafa_ig_projet::{
-    Application,
     camera::{Camera, Projection},
     material::Material,
     mesh::Mesh,
-    transform::Transform
+    transform::Transform,
+    Application,
 };
-
 use violette_low::{
-    framebuffer::{DepthTestFunction, FramebufferFeature},
     base::bindable::BindableExt,
     framebuffer::{ClearBuffer, Framebuffer},
-    texture::{Texture}
+    framebuffer::{DepthTestFunction, FramebufferFeature},
+    texture::Texture,
 };
 
 struct App {
@@ -38,9 +32,10 @@ impl Application for App {
     #[tracing::instrument(target = "App::new")]
     fn new(size: PhysicalSize<f32>) -> anyhow::Result<Self> {
         let mesh = Mesh::uv_sphere(1.0, 32, 32)?;
-        let material = Material::create(Texture::from_image(
-            image::open("assets/textures/moon_color.jpg")?.into_rgb32f(),
-        )?)?;
+        let material = Material::create(
+            Texture::from_image(image::open("assets/textures/moon_color.jpg")?.into_rgb32f())?,
+            Texture::from_image(image::open("assets/textures/moon_normal.png")?.into_rgb32f())?,
+        )?;
         let camera = Camera {
             transform: Transform::translation(vec3(0., -1., -4.)).looking_at(Vec3::ZERO),
             projection: Projection {

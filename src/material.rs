@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use anyhow::Context;
@@ -9,10 +9,7 @@ use violette_low::program::{Linked, Program};
 use violette_low::shader::{Shader, ShaderStage};
 use violette_low::texture::{Texture, TextureUnit};
 
-use crate::{
-    camera::Camera,
-    mesh::Mesh
-};
+use crate::{camera::Camera, mesh::Mesh};
 
 pub enum TextureSlot<const N: usize> {
     Texture(Texture<[f32; N]>),
@@ -100,11 +97,16 @@ impl ShaderBuilder {
 pub struct Material {
     program: Program<Linked>,
     color_slot: TextureSlot<3>,
+    normal_map: Option<Texture<[f32; 3]>>,
 }
 
 impl Material {
-    pub fn create(color_slot: impl Into<TextureSlot<3>>) -> anyhow::Result<Self> {
+    pub fn create(
+        color_slot: impl Into<TextureSlot<3>>,
+        normal_map: impl Into<Option<Texture<[f32; 3]>>>,
+    ) -> anyhow::Result<Self> {
         let mut color_slot = color_slot.into();
+        let mut normal_map = normal_map.into();
         let shaders_dir = Path::new("assets").join("shaders");
         let vert_shader = Shader::load(ShaderStage::Vertex, shaders_dir.join("mesh.vert.glsl"))?;
         let frag_shader = {
@@ -112,20 +114,32 @@ impl Material {
             if let TextureSlot::Texture(_) = &color_slot {
                 builder.define("HAS_COLOR_TEXTURE");
             }
+            if normal_map.is_some() {
+                builder.define("HAS_NORMAL_TEXTURE");
+            }
             builder.load(shaders_dir.join("mesh.frag.glsl"))?;
             builder
                 .build(ShaderStage::Fragment)
                 .context("Cannot build material shader")?
         };
         let mut program = Program::from_shaders([vert_shader.id, frag_shader.id])?;
-        program.with_binding(|progbind| match color_slot {
-            TextureSlot::Texture(_) => progbind.uniform("color").unwrap().set(TextureUnit(0)),
-            TextureSlot::Color(col) => progbind.uniform("color").unwrap().set(col),
+        program.with_binding(|progbind| {
+            match color_slot {
+                TextureSlot::Texture(_) => progbind.uniform("color").unwrap().set(TextureUnit(0))?,
+                TextureSlot::Color(col) => progbind.uniform("color").unwrap().set(col)?,
+            }
+            if let Some(tex) = &mut normal_map {
+                let unit = TextureUnit(1);
+                progbind.uniform("normal_map").unwrap().set(unit)?;
+                tex.set_texture_unit(unit);
+            }
+            Ok(())
         })?;
         color_slot.set_texture_unit(TextureUnit(0));
         Ok(Self {
             program,
             color_slot,
+            normal_map,
         })
     }
 
@@ -140,11 +154,18 @@ impl Material {
             .uniform("model")
             .unwrap()
             .set(mesh.transform.matrix())?;
+        let mat_view_proj = camera.projection.matrix() * camera.transform.matrix();
+        progbind.uniform("view_proj").unwrap().set(mat_view_proj)?;
         progbind
-            .uniform("view_proj")
+            .uniform("inv_view_proj")
             .unwrap()
-            .set(camera.projection.matrix() * camera.transform.matrix())?;
-        let _texbind = if let TextureSlot::Texture(tex) = &mut self.color_slot {
+            .set(mat_view_proj.inverse())?;
+        let _coltex = if let TextureSlot::Texture(tex) = &mut self.color_slot {
+            Some(tex.bind()?)
+        } else {
+            None
+        };
+        let _normtex = if let Some(tex) = &mut self.normal_map {
             Some(tex.bind()?)
         } else {
             None
