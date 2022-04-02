@@ -24,6 +24,7 @@ pub mod material;
 pub mod mesh;
 pub mod screen_draw;
 pub mod transform;
+pub mod light;
 
 pub trait Application: Sized + Send + Sync {
     fn window_features(wb: WindowBuilder) -> WindowBuilder {

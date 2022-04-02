@@ -19,10 +19,17 @@ uniform sampler2D normal_map;
 
 out vec4 out_color;
 
-const float M_PI = 3.141562;
-const vec3 light_dir = normalize(vec3(1., -1., -1.));
-const vec3 light_color = vec3(3.3, 3.1, 2.5);
+layout(std140) uniform Light {
+    uint light_kind;
+    vec3 light_pos_dir;
+    vec3 light_color;
+};
 
+const uint LIGHT_KIND_POINT = 0u;
+const uint LIGHT_KIND_DIRECTIONAL = 0u;
+const uint LIGHT_KIND_AMBIENT = 0u;
+
+const float M_PI = 3.141562;
 const vec3 F0 = vec3(0.04);
 
 vec3 fresnel(float cos_theta, vec3 F0) {
@@ -103,33 +110,38 @@ mat3 cotangent_frame(vec3 normal, vec3 pos, vec2 uv) {
     return mat3(T * invmax, B * invmax, normal);
 }
 
-float desaturate(vec3 col) {
-    return dot(col, vec3(0.2126, 0.7152, 0.0722));
-}
-
-vec3 reinhard(vec3 col) {
-    return col / (1.0 + desaturate(col));
-}
-
 void main() {
-    vec4 view_ray4 = inv_view_proj * vec4(0.0, 0.0, -1.0, 0.0);
-    vec3 view_dir = view_ray4.xyz;
-
-    #ifdef HAS_NORMAL_TEXTURE
-    mat3 tbn = cotangent_frame(v_normal, v_position, v_uv);
-    vec3 tangent_map = -(texture(normal_map, v_uv).xyz * 2. - 1.);
-    vec3 normal = normalize(tbn * tangent_map);
-    vec3 k = get_lighting(view_dir, light_dir, 1.0, normal);
-    #else
-    vec3 normal = v_normal;
-    vec3 k = get_lighting(view_dir, light_dir, 1.0, v_normal);
-    #endif
     #ifdef HAS_COLOR_TEXTURE
     vec3 albedo = texture(color, v_uv).rgb;
     #else
     vec3 albedo = color;
     #endif
-    vec3 reflectance = albedo * (k+0.1);
-    out_color = vec4(reinhard(reflectance), 1.0);
+
+    if(light_kind == LIGHT_KIND_AMBIENT) {
+        out_color = vec4(light_color * albedo, 1.0);
+        return;
+    }
+
+    vec4 view_ray4 = inv_view_proj * vec4(0.0, 0.0, -1.0, 0.0);
+    vec3 view_dir = view_ray4.xyz;
+    vec3 light_dir;
+    if(light_kind == LIGHT_KIND_POINT) {
+        light_dir = normalize(light_pos_dir - v_position);
+    } else {
+        light_dir = light_pos_dir;
+    }
+
+    #ifdef HAS_NORMAL_TEXTURE
+    mat3 tbn = cotangent_frame(v_normal, v_position, v_uv);
+    vec3 tangent_map = -(texture(normal_map, v_uv).xyz * 2. - 1.);
+    vec3 normal = normalize(tbn * tangent_map);
+    vec3 k = light_color * get_lighting(view_dir, light_dir, 1.0, normal);
+    #else
+    vec3 normal = v_normal;
+    vec3 k = light_color * get_lighting(view_dir, light_dir, 1.0, v_normal);
+    #endif
+
+    vec3 reflectance = albedo * k;
+    out_color = vec4(reflectance, 1.0);
     return;
 }

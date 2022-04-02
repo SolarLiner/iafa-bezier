@@ -54,7 +54,7 @@ pub struct ScreenDraw {
 impl ScreenDraw {
     pub fn new(shader_source: &str) -> anyhow::Result<Self> {
         let program = Program::from_sources(
-            &std::fs::read_to_string("assets/shaders/screen.vert.glsl")?,
+            &std::fs::read_to_string("assets/shaders/noop.vert.glsl")?,
             Some(shader_source),
             None,
         )?;

@@ -4,11 +4,13 @@ use std::path::Path;
 use anyhow::Context;
 
 use violette_low::base::bindable::BindableExt;
-use violette_low::framebuffer::BoundFB;
+use violette_low::buffer::BoundBuffer;
+use violette_low::framebuffer::{Blend, BoundFB};
 use violette_low::program::{Linked, Program};
 use violette_low::shader::{Shader, ShaderStage};
 use violette_low::texture::{Texture, TextureUnit};
 
+use crate::light::GpuLight;
 use crate::{camera::Camera, mesh::Mesh};
 
 pub enum TextureSlot<const N: usize> {
@@ -125,7 +127,9 @@ impl Material {
         let mut program = Program::from_shaders([vert_shader.id, frag_shader.id])?;
         program.with_binding(|progbind| {
             match color_slot {
-                TextureSlot::Texture(_) => progbind.uniform("color").unwrap().set(TextureUnit(0))?,
+                TextureSlot::Texture(_) => {
+                    progbind.uniform("color").unwrap().set(TextureUnit(0))?
+                }
                 TextureSlot::Color(col) => progbind.uniform("color").unwrap().set(col)?,
             }
             if let Some(tex) = &mut normal_map {
@@ -148,7 +152,9 @@ impl Material {
         framebuffer: &mut BoundFB,
         camera: &Camera,
         mesh: &mut Mesh,
+        lights: &mut BoundBuffer<GpuLight>,
     ) -> anyhow::Result<()> {
+        framebuffer.set_blending(Blend::One, Blend::One)?;
         let progbind = self.program.bind()?;
         progbind
             .uniform("model")
@@ -160,17 +166,23 @@ impl Material {
             .uniform("inv_view_proj")
             .unwrap()
             .set(mat_view_proj.inverse())?;
-        let _coltex = if let TextureSlot::Texture(tex) = &mut self.color_slot {
-            Some(tex.bind()?)
-        } else {
-            None
-        };
-        let _normtex = if let Some(tex) = &mut self.normal_map {
-            Some(tex.bind()?)
-        } else {
-            None
-        };
-        mesh.draw(framebuffer)?;
+        for i in 0..lights.len() {
+            progbind
+                .uniform_block("Light", 0)
+                .unwrap()
+                .bind_block(&lights.slice(i..=i)).unwrap();
+            let _coltex = if let TextureSlot::Texture(tex) = &mut self.color_slot {
+                Some(tex.bind()?)
+            } else {
+                None
+            };
+            let _normtex = if let Some(tex) = &mut self.normal_map {
+                Some(tex.bind()?)
+            } else {
+                None
+            };
+            mesh.draw(framebuffer)?;
+        }
         Ok(())
     }
 }
