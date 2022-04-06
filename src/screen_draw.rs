@@ -92,6 +92,7 @@ impl ScreenDraw {
     }
 
     pub fn draw(&mut self, framebuffer: &mut BoundFB) -> anyhow::Result<()> {
+        let _progbind = self.program.bind()?;
         let mut _vaobind = self.vao.bind()?;
         let idx_binding = self.indices.bind()?;
         framebuffer.draw_elements(&mut _vaobind, &idx_binding, DrawMode::TrianglesList, ..)?;

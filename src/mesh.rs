@@ -1,13 +1,14 @@
 use anyhow::Context;
-use glam::{vec2, Vec2, vec3, Vec3};
+use float_ord::FloatOrd;
+use glam::{vec2, vec3, Vec2, Vec3};
 
 use violette_low::{
     base::bindable::BindableExt,
     buffer::Buffer,
     buffer::BufferKind,
     framebuffer::BoundFB,
-    vertex::{AsVertexAttributes, VertexArray},
     vertex::DrawMode,
+    vertex::{AsVertexAttributes, VertexArray},
 };
 
 use crate::transform::Transform;
@@ -32,7 +33,10 @@ pub struct Mesh {
 }
 
 impl Mesh {
-    pub fn new(vertices: impl IntoIterator<Item=Vertex>, indices: impl IntoIterator<Item=u32>) -> anyhow::Result<Self> {
+    pub fn new(
+        vertices: impl IntoIterator<Item = Vertex>,
+        indices: impl IntoIterator<Item = u32>,
+    ) -> anyhow::Result<Self> {
         let vertices = vertices.into_iter().collect::<Vec<_>>();
         let vertices = Buffer::with_data(BufferKind::Array, &vertices)?;
         let indices = indices.into_iter().collect::<Vec<_>>();
@@ -40,7 +44,11 @@ impl Mesh {
 
         let mut vao = VertexArray::new();
         vao.with_binding(|vao| vao.with_vertex_buffer(vertices))?;
-        Ok(Self { transform: Transform::default(), array: vao, indices })
+        Ok(Self {
+            transform: Transform::default(),
+            array: vao,
+            indices,
+        })
     }
 
     pub fn uv_sphere(radius: f32, nlon: usize, nlat: usize) -> anyhow::Result<Self> {
@@ -130,7 +138,13 @@ impl Mesh {
     pub fn wireframe(&mut self, framebuffer: &mut BoundFB) -> anyhow::Result<()> {
         let mut _vaobind = self.array.bind()?;
         let ibuf_binding = self.indices.bind()?;
-        framebuffer.draw_elements(&mut _vaobind, &ibuf_binding, DrawMode::Lines, ..).context("Cannot draw mesh")?;
+        framebuffer
+            .draw_elements(&mut _vaobind, &ibuf_binding, DrawMode::Lines, ..)
+            .context("Cannot draw mesh")?;
         Ok(())
+    }
+
+    pub(crate) fn distance_to_camera(&self, camera: &crate::camera::Camera) -> FloatOrd<f32> {
+        FloatOrd(self.transform.position.distance(camera.transform.position))
     }
 }

@@ -126,15 +126,18 @@ impl Application for App {
         violette_low::set_point_size(10.);
         violette_low::set_line_width(2.);
         violette_low::set_line_smooth(true);
+
+        // Bézier curve
         stroke_uniform.set([1f32, 1., 1.]).unwrap();
         frame.clear_color([0., 0., 0., 1.]);
-        frame.do_clear(ClearBuffer::COLOR);
+        frame.do_clear(ClearBuffer::COLOR).unwrap();
         self.vao
             .with_binding(|vao_binding| {
                 frame.draw(vao_binding, DrawMode::LineStrip, 0..vertices.len() as i32)
             })
             .unwrap();
 
+        // Control points
         stroke_uniform.set([1., 0., 1.]).unwrap();
         self.vao
             .buffer(0)

@@ -5,7 +5,7 @@ use anyhow::Context;
 
 use violette_low::base::bindable::BindableExt;
 use violette_low::buffer::BoundBuffer;
-use violette_low::framebuffer::{Blend, BoundFB};
+use violette_low::framebuffer::{Blend, BoundFB, ClearBuffer};
 use violette_low::program::{Linked, Program};
 use violette_low::shader::{Shader, ShaderStage};
 use violette_low::texture::{Texture, TextureUnit};
@@ -126,11 +126,13 @@ impl Material {
         };
         let mut program = Program::from_shaders([vert_shader.id, frag_shader.id])?;
         program.with_binding(|progbind| {
-            match color_slot {
-                TextureSlot::Texture(_) => {
-                    progbind.uniform("color").unwrap().set(TextureUnit(0))?
+            match &mut color_slot {
+                TextureSlot::Texture(tex) => {
+                    let unit = TextureUnit(0);
+                    progbind.uniform("color").unwrap().set(unit)?;
+                    tex.set_texture_unit(unit);
                 }
-                TextureSlot::Color(col) => progbind.uniform("color").unwrap().set(col)?,
+                TextureSlot::Color(col) => progbind.uniform("color").unwrap().set(*col)?,
             }
             if let Some(tex) = &mut normal_map {
                 let unit = TextureUnit(1);
@@ -139,7 +141,6 @@ impl Material {
             }
             Ok(())
         })?;
-        color_slot.set_texture_unit(TextureUnit(0));
         Ok(Self {
             program,
             color_slot,
@@ -151,37 +152,44 @@ impl Material {
         &mut self,
         framebuffer: &mut BoundFB,
         camera: &Camera,
-        mesh: &mut Mesh,
         lights: &mut BoundBuffer<GpuLight>,
+        meshes: &mut [Mesh],
     ) -> anyhow::Result<()> {
-        framebuffer.set_blending(Blend::One, Blend::One)?;
+        framebuffer
+            .set_blending(Blend::SrcAlpha, Blend::One) // Additive blending
+            .unwrap();
+        meshes.sort_by_cached_key(|m| m.distance_to_camera(camera));
         let progbind = self.program.bind()?;
-        progbind
-            .uniform("model")
-            .unwrap()
-            .set(mesh.transform.matrix())?;
         let mat_view_proj = camera.projection.matrix() * camera.transform.matrix();
         progbind.uniform("view_proj").unwrap().set(mat_view_proj)?;
         progbind
             .uniform("inv_view_proj")
             .unwrap()
             .set(mat_view_proj.inverse())?;
-        for i in 0..lights.len() {
+        for light_idx in 0..lights.len() {
+            framebuffer.do_clear(ClearBuffer::DEPTH).unwrap();
             progbind
                 .uniform_block("Light", 0)
                 .unwrap()
-                .bind_block(&lights.slice(i..=i)).unwrap();
-            let _coltex = if let TextureSlot::Texture(tex) = &mut self.color_slot {
-                Some(tex.bind()?)
-            } else {
-                None
-            };
-            let _normtex = if let Some(tex) = &mut self.normal_map {
-                Some(tex.bind()?)
-            } else {
-                None
-            };
-            mesh.draw(framebuffer)?;
+                .bind_block(&lights.slice(light_idx..=light_idx))
+                .unwrap();
+            for mesh in &mut *meshes {
+                progbind
+                    .uniform("model")
+                    .unwrap()
+                    .set(mesh.transform.matrix())?;
+                let _coltex = if let TextureSlot::Texture(tex) = &mut self.color_slot {
+                    Some(tex.bind()?)
+                } else {
+                    None
+                };
+                let _normtex = if let Some(tex) = &mut self.normal_map {
+                    Some(tex.bind()?)
+                } else {
+                    None
+                };
+                mesh.draw(framebuffer)?;
+            }
         }
         Ok(())
     }

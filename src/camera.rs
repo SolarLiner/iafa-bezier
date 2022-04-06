@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use glam::Mat4;
+use glutin::dpi::PhysicalSize;
 use crate::transform::Transform;
 
 #[derive(Debug, Clone)]
@@ -23,6 +24,11 @@ impl Default for Projection {
 }
 
 impl Projection {
+    pub fn update(&mut self, size: PhysicalSize<f32>) {
+        self.width = size.width;
+        self.height = size.height;
+    }
+
     pub fn matrix(&self) -> Mat4 {
         Mat4::perspective_rh_gl(
             self.fovy,

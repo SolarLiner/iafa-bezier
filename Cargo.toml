@@ -9,6 +9,7 @@ members = ["violette/violette-low"]
 [dependencies]
 anyhow = "1.0.53"
 bytemuck = { version = "1.7.3", features = ["derive"] }
+float-ord = "0.3.2"
 glam = { version = "0.20.2", features = ["bytemuck", "rand", "num-traits"] }
 glutin = "0.28.0"
 image = "0.24.1"

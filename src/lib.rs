@@ -20,11 +20,11 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 pub mod bezier;
 pub mod camera;
+pub mod light;
 pub mod material;
 pub mod mesh;
 pub mod screen_draw;
 pub mod transform;
-pub mod light;
 
 pub trait Application: Sized + Send + Sync {
     fn window_features(wb: WindowBuilder) -> WindowBuilder {
@@ -39,7 +39,7 @@ pub trait Application: Sized + Send + Sync {
 }
 
 pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
-    let fmt_layer = tracing_subscriber::fmt::Layer::default();
+    let fmt_layer = tracing_subscriber::fmt::Layer::default().pretty();
     let json_layer = tracing_subscriber::fmt::Layer::default()
         .json()
         .with_file(true)
@@ -56,6 +56,8 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
     let event_loop = EventLoop::new();
     let wb = App::window_features(WindowBuilder::new()).with_title(title);
     let context = ContextBuilder::new()
+        .with_gl_profile(glutin::GlProfile::Core)
+        .with_gl_debug_flag(true)
         .build_windowed(wb, &event_loop)
         .context("Cannot create context")?;
     let context = unsafe { context.make_current().map_err(|(_, err)| err) }
@@ -89,9 +91,12 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
         move || {
             let mut last_tick = Instant::now();
             loop {
+                let tick_start = Instant::now();
                 app.lock().unwrap().tick(last_tick.elapsed());
+                let tick_duration = tick_start.elapsed().as_secs_f32();
                 last_tick = Instant::now();
-                std::thread::sleep(Duration::from_nanos(16_666_667));
+                tracing::debug!(%tick_duration);
+                std::thread::sleep(Duration::from_nanos(4_166_167)); // 240 FPS
             }
         }
     });
