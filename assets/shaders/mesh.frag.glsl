@@ -26,8 +26,8 @@ layout(std140) uniform Light {
 };
 
 const uint LIGHT_KIND_POINT = 0u;
-const uint LIGHT_KIND_DIRECTIONAL = 0u;
-const uint LIGHT_KIND_AMBIENT = 0u;
+const uint LIGHT_KIND_DIRECTIONAL = 1u;
+const uint LIGHT_KIND_AMBIENT = 2u;
 
 const float M_PI = 3.141562;
 const vec3 F0 = vec3(0.04);

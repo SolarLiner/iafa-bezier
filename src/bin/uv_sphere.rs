@@ -1,106 +1,28 @@
-use std::any;
 use std::time::Duration;
 
 use anyhow::Context;
 use glam::{vec3, Quat, Vec2, Vec3};
-use glutin::event::{ElementState, MouseButton};
-use glutin::{dpi::PhysicalSize, event::WindowEvent};
+use glutin::{
+    dpi::PhysicalSize,
+    event::{ElementState, MouseButton, WindowEvent},
+};
 
-use iafa_ig_projet::light::{GpuLight, Light};
-use iafa_ig_projet::screen_draw::ScreenDraw;
 use iafa_ig_projet::{
     camera::{Camera, Projection},
+    gbuffers::GeometryBuffers,
+    light::{GpuLight, Light},
     material::Material,
     mesh::Mesh,
     transform::Transform,
     Application,
 };
-use num_traits::Bounded;
-use violette_low::base::bindable::{BindGuard, Resource};
-use violette_low::buffer::{Buffer, BufferKind};
-use violette_low::framebuffer::{self, BoundFB};
-use violette_low::texture::{DepthStencil, SampleMode, TextureUnit};
 use violette_low::{
     base::bindable::BindableExt,
-    framebuffer::{ClearBuffer, Framebuffer},
-    framebuffer::{DepthTestFunction, FramebufferFeature},
+    buffer::{Buffer, BufferKind},
+    framebuffer::{ClearBuffer, DepthTestFunction, Framebuffer, FramebufferFeature},
     texture::Texture,
+    Cull,
 };
-
-struct GeometryBuffers {
-    screen_pass: ScreenDraw,
-    gfbo: Framebuffer,
-    gcolor: Texture<[f32; 4]>,
-    gdepth: Texture<DepthStencil<f32, ()>>,
-}
-
-impl GeometryBuffers {
-    fn new(size: PhysicalSize<u32>) -> anyhow::Result<Self> {
-        let mut gcolor = Texture::new(
-            size.width,
-            size.height,
-            1,
-            violette_low::texture::Dimension::D2,
-        );
-        gcolor.with_binding(|tex| {
-            tex.filter_min(SampleMode::Linear)?;
-            tex.filter_mag(SampleMode::Linear)?;
-            tex.reserve_memory()
-        })?;
-
-        let mut gdepth = Texture::new(
-            size.width,
-            size.height,
-            1,
-            violette_low::texture::Dimension::D2,
-        );
-        gdepth.with_binding(|tex| {
-            tex.filter_min(SampleMode::Linear)?;
-            tex.filter_mag(SampleMode::Linear)?;
-            tex.reserve_memory()
-        })?;
-
-        let mut gfbo = Framebuffer::new();
-        gfbo.with_binding(|fbo| {
-            fbo.attach_color(0, &gcolor)?;
-            fbo.attach_depth(&gdepth)?;
-            fbo.assert_complete()
-        })?;
-        Ok(Self {
-            gfbo,
-            gcolor,
-            gdepth,
-            screen_pass: ScreenDraw::load("assets/shaders/screen/tonemapping.glsl")?,
-        })
-    }
-
-    pub fn framebuffer(&mut self) -> &mut Framebuffer {
-        &mut self.gfbo
-    }
-
-    pub fn draw(&mut self, frame: &mut BoundFB) -> anyhow::Result<()> {
-        let unit = TextureUnit(0);
-        self.screen_pass
-            .with_uniform("in_color", |loc| loc.set(unit))?;
-        self.gcolor.set_texture_unit(unit);
-
-        let _gcoltex = self.gcolor.bind()?;
-        self.screen_pass.draw(frame)
-    }
-
-    pub fn resize(&mut self, size: PhysicalSize<u32>) -> anyhow::Result<()> {
-        self.gfbo
-            .bind()?
-            .viewport(0, 0, size.width as _, size.height as _);
-        self.gcolor
-            .bind()?
-            .clear_resize(size.width, size.height, 1)?;
-        self.gdepth
-            .bind()?
-            .clear_resize(size.width, size.height, 1)?;
-        Ok(())
-    }
-}
 
 struct App {
     camera: Camera,
@@ -123,11 +45,18 @@ impl Application for App {
         )?;
         let lights = Buffer::with_data(
             BufferKind::Uniform,
-            &[Light::Directional {
-                dir: Vec3::X,
-                color: Vec3::ONE,
-            }
-            .into()],
+            &[
+                Light::Directional {
+                    dir: Vec3::X,
+                    color: Vec3::ONE * 12.,
+                }
+                .into(),
+                Light::Directional {
+                    dir: Vec3::Z,
+                    color: vec3(1., 1.5, 2.),
+                }
+                .into(),
+            ],
         )?;
         let camera = Camera {
             transform: Transform::translation(vec3(0., -1., -4.)).looking_at(Vec3::ZERO),
@@ -138,11 +67,14 @@ impl Application for App {
             },
         };
         let mut geom_pass = GeometryBuffers::new(size.cast())?;
+        geom_pass.set_exposure(0.06);
         geom_pass
             .framebuffer()
             .bind()?
             .enable_feature(FramebufferFeature::DepthTest(DepthTestFunction::Less))?;
         let rot_target = camera.transform.rotation;
+        violette_low::culling(Some(Cull::Back));
+
         Ok(Self {
             camera,
             mesh,
@@ -162,6 +94,7 @@ impl Application for App {
             .unwrap()
             .viewport(0, 0, size.width as _, size.height as _);
     }
+
     fn interact(&mut self, event: WindowEvent) {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
@@ -225,7 +158,11 @@ impl Application for App {
             .unwrap();
 
         Framebuffer::backbuffer()
-            .with_binding(|bb| self.geom_pass.draw(bb))
+            .with_binding(|bb| {
+                bb.clear_depth(1.0);
+                bb.do_clear(ClearBuffer::DEPTH)?;
+                self.geom_pass.draw(bb)
+            })
             .unwrap();
     }
 }

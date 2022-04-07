@@ -57,8 +57,8 @@ impl Mesh {
         let num_triangles = nlon * nlat * 2;
         let mut indices = Vec::with_capacity(num_triangles * 3);
 
-        let lat_step = PI / nlat as f32;
-        let lon_step = TAU / nlon as f32;
+        let lat_step = PI / (nlat - 1) as f32;
+        let lon_step = TAU / (nlon - 1) as f32;
 
         vertices.push(Vertex {
             position: Vec3::Y,
@@ -89,7 +89,7 @@ impl Mesh {
 
         // Indices: first row connected to north pole
         for i in 0..nlon {
-            indices.extend([0, i + 1, i + 2])
+            indices.extend([0, i + 2, i + 1])
         }
 
         // Triangles strips
@@ -101,9 +101,9 @@ impl Mesh {
                 let corner_bl = corner_tl + nlon;
                 let corner_br = corner_bl + 1;
                 // First face (top-left)
-                indices.extend([corner_tl, corner_bl, corner_tr]);
+                indices.extend([corner_tr, corner_bl, corner_tl]);
                 // Second face (bottom-right)
-                indices.extend([corner_bl, corner_br, corner_tr]);
+                indices.extend([corner_tr, corner_br, corner_bl]);
             }
         }
 

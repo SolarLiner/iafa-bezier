@@ -2,6 +2,7 @@
 
 in vec2 v_uv;
 uniform sampler2D in_color;
+uniform float exposure;
 
 out vec4 out_color;
 
@@ -15,5 +16,5 @@ vec3 reinhard(vec3 col) {
 
 void main() {
     vec3 c = texture(in_color, v_uv).rgb;
-    out_color = vec4(reinhard(c), 1.0);
+    out_color = vec4(reinhard(exposure * c), 1.0);
 }

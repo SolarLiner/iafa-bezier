@@ -5,7 +5,7 @@ use anyhow::Context;
 
 use violette_low::base::bindable::BindableExt;
 use violette_low::buffer::BoundBuffer;
-use violette_low::framebuffer::{Blend, BoundFB, ClearBuffer};
+use violette_low::framebuffer::{Blend, BoundFB, ClearBuffer, FramebufferFeature};
 use violette_low::program::{Linked, Program};
 use violette_low::shader::{Shader, ShaderStage};
 use violette_low::texture::{Texture, TextureUnit};
@@ -155,9 +155,7 @@ impl Material {
         lights: &mut BoundBuffer<GpuLight>,
         meshes: &mut [Mesh],
     ) -> anyhow::Result<()> {
-        framebuffer
-            .set_blending(Blend::SrcAlpha, Blend::One) // Additive blending
-            .unwrap();
+        framebuffer.enable_feature(FramebufferFeature::Blending(Blend::SrcAlpha, Blend::One))?; // Additive blending
         meshes.sort_by_cached_key(|m| m.distance_to_camera(camera));
         let progbind = self.program.bind()?;
         let mat_view_proj = camera.projection.matrix() * camera.transform.matrix();
