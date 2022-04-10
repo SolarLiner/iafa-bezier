@@ -1,4 +1,3 @@
-use std::any;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -6,25 +5,20 @@ use glam::{vec3, Quat, Vec2, Vec3};
 use glutin::event::{ElementState, MouseButton};
 use glutin::{dpi::PhysicalSize, event::WindowEvent};
 
-use iafa_ig_projet::light::{GpuLight, Light};
-use iafa_ig_projet::screen_draw::ScreenDraw;
 use iafa_ig_projet::{
     camera::{Camera, Projection},
+    light::{GpuLight, Light},
     material::Material,
     mesh::Mesh,
+    screen_draw::ScreenDraw,
     transform::Transform,
     Application,
 };
-use num_traits::Bounded;
-use violette_low::base::bindable::{BindGuard, Resource};
-use violette_low::buffer::{Buffer, BufferKind};
-use violette_low::framebuffer::{self, BoundFB};
-use violette_low::texture::{DepthStencil, SampleMode, TextureUnit};
 use violette_low::{
     base::bindable::BindableExt,
-    framebuffer::{ClearBuffer, Framebuffer},
-    framebuffer::{DepthTestFunction, FramebufferFeature},
-    texture::Texture,
+    buffer::{Buffer, BufferKind},
+    framebuffer::{BoundFB, ClearBuffer, DepthTestFunction, Framebuffer, FramebufferFeature},
+    texture::{DepthStencil, SampleMode, Texture, TextureUnit},
 };
 
 struct GeometryBuffers {
@@ -116,7 +110,7 @@ struct App {
 impl Application for App {
     #[tracing::instrument(target = "App::new")]
     fn new(size: PhysicalSize<f32>) -> anyhow::Result<Self> {
-        let mesh = Mesh::uv_sphere(1.0, 32, 32)?;
+        let mesh = Mesh::uv_sphere(1.0, 64, 64)?;
         let material = Material::create(
             Texture::from_image(image::open("assets/textures/moon_color.jpg")?.into_rgb32f())?,
             Texture::from_image(image::open("assets/textures/moon_normal.png")?.into_rgb32f())?,

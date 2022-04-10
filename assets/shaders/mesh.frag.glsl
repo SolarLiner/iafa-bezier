@@ -68,12 +68,12 @@ float smith(vec3 N, vec3 V, vec3 L, float roughness) {
     return ggx1 * ggx2;
 }
 
-vec3 get_radiance(vec3 H, float D, vec3 N) {
+vec3 diffuse_brdf(vec3 H, float D, vec3 N) {
     float attenuation = 1.0 / (D * D);
     return light_color * attenuation;
 }
 
-vec3 get_specular(vec3 V, vec3 H, vec3 L, float D, vec3 N) {
+vec3 specular_brdf(vec3 V, vec3 H, vec3 L, float D, vec3 N) {
     float roughness = /* texture(g_rough_metal, v_uv).r */ 0.8;
     float NDF = ggx_dist(N, H, roughness);
     float G = smith(N, V, L, roughness);
@@ -85,14 +85,14 @@ vec3 get_specular(vec3 V, vec3 H, vec3 L, float D, vec3 N) {
     return num/denominator;
 }
 
-vec3 get_lighting(vec3 V, vec3 L, float D, vec3 N) {
+vec3 get_lighting(vec3 V, vec3 L, vec3 N, float distance) {
     float metallic = /* texture(g_rough_metal, v_uv).g */ 0.0;
 
     vec3 H = normalize(V+L);
     vec3 kS = fresnel(max(0.0, dot(H, V)), F0);
     vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-    vec3 specular = get_specular(V, H, L, D, N);
-    vec3 radiance = get_radiance(H, D, N);
+    vec3 specular = specular_brdf(V, H, L, distance, N);
+    vec3 radiance = diffuse_brdf(H, distance, N);
     float NdotL = max(0.0, dot(N, L));
     return (kD + specular) * radiance * NdotL;
 }
@@ -124,10 +124,14 @@ void main() {
 
     vec4 view_ray4 = inv_view_proj * vec4(0.0, 0.0, -1.0, 0.0);
     vec3 view_dir = view_ray4.xyz;
+
+    float light_distance;
     vec3 light_dir;
     if(light_kind == LIGHT_KIND_POINT) {
+        light_distance = distance(light_pos_dir, v_position);
         light_dir = normalize(light_pos_dir - v_position);
     } else {
+        light_distance = 1.;
         light_dir = light_pos_dir;
     }
 
@@ -135,11 +139,10 @@ void main() {
     mat3 tbn = cotangent_frame(v_normal, v_position, v_uv);
     vec3 tangent_map = -(texture(normal_map, v_uv).xyz * 2. - 1.);
     vec3 normal = normalize(tbn * tangent_map);
-    vec3 k = light_color * get_lighting(view_dir, light_dir, 1.0, normal);
     #else
     vec3 normal = v_normal;
-    vec3 k = light_color * get_lighting(view_dir, light_dir, 1.0, v_normal);
     #endif
+    vec3 k = light_color * get_lighting(view_dir, light_dir, normal, light_distance);
 
     vec3 reflectance = albedo * k;
     out_color = vec4(reflectance, 1.0);

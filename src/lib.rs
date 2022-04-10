@@ -5,15 +5,13 @@ use std::{
 };
 
 use anyhow::Context;
-use glutin::event::{ElementState, ScanCode, VirtualKeyCode};
-use glutin::window::Fullscreen;
 use glutin::{
     dpi::PhysicalSize,
-    event::Event,
-    event::{KeyboardInput, StartCause, WindowEvent},
-    event_loop::ControlFlow,
-    event_loop::EventLoop,
-    window::WindowBuilder,
+    event::{
+        ElementState, Event, KeyboardInput, ScanCode, StartCause, VirtualKeyCode, WindowEvent,
+    },
+    event_loop::{ControlFlow, EventLoop},
+    window::{Fullscreen, WindowBuilder},
     ContextBuilder,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -56,8 +54,8 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
     let event_loop = EventLoop::new();
     let wb = App::window_features(WindowBuilder::new()).with_title(title);
     let context = ContextBuilder::new()
-        .with_gl_profile(glutin::GlProfile::Core)
-        .with_gl_debug_flag(true)
+        //.with_gl_profile(glutin::GlProfile::Core)
+        .with_double_buffer(Some(true))
         .build_windowed(wb, &event_loop)
         .context("Cannot create context")?;
     let context = unsafe { context.make_current().map_err(|(_, err)| err) }
