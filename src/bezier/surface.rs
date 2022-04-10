@@ -6,6 +6,7 @@ use crate::mesh::{Mesh, Vertex};
 pub struct BezierSurface {
     profile: Vec<BezierCurve<Vec3>>,
     dtprec: f32,
+    looping: bool,
 }
 
 impl BezierSurface {
@@ -13,6 +14,7 @@ impl BezierSurface {
         Self {
             profile: profile.into_iter().collect(),
             dtprec: 1e-4,
+            looping: false,
         }
     }
 
@@ -21,15 +23,20 @@ impl BezierSurface {
         self
     }
 
+    pub fn looping(mut self, v: bool) -> Self {
+        self.looping = v;
+        self
+    }
+
     pub fn get_point(&self, u: f32, v: f32) -> Vec3 {
-        BezierCurve::new(self.profile.iter().map(|curve| curve.get_point(u))).get_point(v)
+        BezierCurve::new(self.profile.iter().map(|curve| curve.get_point(u))).looping(self.looping).get_point(v)
     }
 
     pub fn gradient(&self, u: f32, v: f32) -> Vec3 {
         let anchor = self.get_point(u, v);
-        let du = (self.get_point(u + self.dtprec, v) - anchor)/self.dtprec;
-        let dv = (self.get_point(u, v + self.dtprec) - anchor)/self.dtprec;
-        du+dv
+        let du = (self.get_point(u + self.dtprec, v) - anchor) / self.dtprec;
+        let dv = (self.get_point(u, v + self.dtprec) - anchor) / self.dtprec;
+        du + dv
     }
 
     pub fn triangulate(&self, u: usize, v: usize) -> anyhow::Result<Mesh> {
@@ -53,12 +60,12 @@ impl BezierSurface {
                 let idx = j * u + i;
                 let idx_next = idx + u;
                 indices.extend([
-                    /* face 1 */ idx_next,
+                    /* face 1 */ idx,
                     idx + 1,
-                    idx,
-                    /* face 2 */ idx_next,
+                    idx_next,
+                    /* face 2 */ idx + 1,
                     idx_next + 1,
-                    idx + 1,
+                    idx_next,
                 ]);
             }
         }

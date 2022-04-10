@@ -5,13 +5,15 @@ use std::{
 };
 
 use anyhow::Context;
+use glutin::event::{ElementState, ScanCode, VirtualKeyCode};
+use glutin::window::Fullscreen;
 use glutin::{
     dpi::PhysicalSize,
-    event::{
-        ElementState, Event, KeyboardInput, ScanCode, StartCause, VirtualKeyCode, WindowEvent,
-    },
-    event_loop::{ControlFlow, EventLoop},
-    window::{Fullscreen, WindowBuilder},
+    event::Event,
+    event::{KeyboardInput, StartCause, WindowEvent},
+    event_loop::ControlFlow,
+    event_loop::EventLoop,
+    window::WindowBuilder,
     ContextBuilder,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -23,6 +25,7 @@ pub mod material;
 pub mod mesh;
 pub mod screen_draw;
 pub mod transform;
+pub mod gbuffers;
 
 pub trait Application: Sized + Send + Sync {
     fn window_features(wb: WindowBuilder) -> WindowBuilder {
@@ -55,7 +58,7 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
     let wb = App::window_features(WindowBuilder::new()).with_title(title);
     let context = ContextBuilder::new()
         //.with_gl_profile(glutin::GlProfile::Core)
-        .with_double_buffer(Some(true))
+        //.with_gl_debug_flag(true)
         .build_windowed(wb, &event_loop)
         .context("Cannot create context")?;
     let context = unsafe { context.make_current().map_err(|(_, err)| err) }
@@ -99,8 +102,6 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
         }
     });
 
-    let _start = Instant::now();
-    let mut last_tick = Instant::now();
     let mut next_frame_time = Instant::now() + std::time::Duration::from_nanos(16_666_667);
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(next_frame_time);
@@ -158,8 +159,5 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
             }
             _ => {}
         }
-        // app.render();
-        // context.swap_buffers().expect("Cannot swap buffers");
-        last_tick = Instant::now();
     });
 }

@@ -2,10 +2,10 @@ use std::ops::{Deref, DerefMut};
 
 use glam::{Vec2, Vec3};
 
-
 #[derive(Debug, Clone)]
 pub struct BezierCurve<V> {
     points: Vec<V>,
+    looping: bool,
 }
 
 impl<V> Deref for BezierCurve<V> {
@@ -26,7 +26,13 @@ impl<V> BezierCurve<V> {
     pub fn new(data: impl IntoIterator<Item = V>) -> Self {
         Self {
             points: data.into_iter().collect(),
+            looping: false,
         }
+    }
+
+    pub fn looping(mut self, v: bool) -> Self {
+        self.looping = v;
+        self
     }
 }
 
@@ -43,7 +49,11 @@ impl<V: Copy> BezierCurve<V> {
         if points.len() == 1 {
             points.remove(0)
         } else {
-            Self { points }.get_point(s)
+            Self {
+                points,
+                looping: false,
+            }
+            .get_point(s)
         }
     }
 }
@@ -66,9 +76,9 @@ impl Lerp<f32> for Vec3 {
 
 #[cfg(test)]
 mod tests {
+    use super::BezierCurve;
     use glam::{vec2, Vec2};
     use test_log::test;
-    use super::BezierCurve;
 
     #[test]
     fn simple_curve() {
