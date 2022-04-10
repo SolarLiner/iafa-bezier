@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context;
+use crevice::std140::AsStd140;
 use glam::{vec3, Quat, Vec2, Vec3};
 use glutin::{
     dpi::PhysicalSize,
@@ -16,6 +17,7 @@ use iafa_ig_projet::{
     transform::Transform,
     Application,
 };
+use iafa_ig_projet::light::LightBuffer;
 use violette_low::{
     base::bindable::BindableExt,
     buffer::{Buffer, BufferKind},
@@ -27,7 +29,7 @@ use violette_low::{
 struct App {
     camera: Camera,
     mesh: Mesh,
-    lights: Buffer<GpuLight>,
+    lights: LightBuffer,
     geom_pass: GeometryBuffers,
     material: Material,
     dragging: bool,
@@ -43,19 +45,16 @@ impl Application for App {
             Texture::from_image(image::open("assets/textures/moon_color.jpg")?.into_rgb32f())?,
             Texture::from_image(image::open("assets/textures/moon_normal.png")?.into_rgb32f())?,
         )?;
-        let lights = Buffer::with_data(
-            BufferKind::Uniform,
-            &[
+        let lights = GpuLight::create_buffer(
+            [
                 Light::Directional {
                     dir: Vec3::X,
                     color: Vec3::ONE * 12.,
-                }
-                .into(),
+                },
                 Light::Directional {
                     dir: Vec3::Z,
                     color: vec3(1., 1.5, 2.),
-                }
-                .into(),
+                },
             ],
         )?;
         let camera = Camera {

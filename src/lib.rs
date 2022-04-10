@@ -14,18 +14,18 @@ use glutin::{
     event_loop::ControlFlow,
     event_loop::EventLoop,
     window::WindowBuilder,
-    ContextBuilder,
+    ContextBuilder, GlRequest,
 };
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 pub mod bezier;
 pub mod camera;
+pub mod gbuffers;
 pub mod light;
 pub mod material;
 pub mod mesh;
 pub mod screen_draw;
 pub mod transform;
-pub mod gbuffers;
 
 pub trait Application: Sized + Send + Sync {
     fn window_features(wb: WindowBuilder) -> WindowBuilder {
@@ -40,7 +40,9 @@ pub trait Application: Sized + Send + Sync {
 }
 
 pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
-    let fmt_layer = tracing_subscriber::fmt::Layer::default().pretty();
+    let fmt_layer = tracing_subscriber::fmt::Layer::default()
+        .pretty()
+        .with_filter(EnvFilter::from_default_env());
     let json_layer = tracing_subscriber::fmt::Layer::default()
         .json()
         .with_file(true)
@@ -51,14 +53,16 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
         .with_writer(File::create("log.json").unwrap());
     tracing_subscriber::registry()
         .with(fmt_layer)
-        .with(EnvFilter::from_default_env())
         .with(json_layer)
         .init();
     let event_loop = EventLoop::new();
     let wb = App::window_features(WindowBuilder::new()).with_title(title);
     let context = ContextBuilder::new()
-        //.with_gl_profile(glutin::GlProfile::Core)
-        //.with_gl_debug_flag(true)
+        .with_gl(GlRequest::GlThenGles {
+            opengl_version: (3, 3),
+            opengles_version: (3, 3),
+        })
+        .with_gl_profile(glutin::GlProfile::Core)
         .build_windowed(wb, &event_loop)
         .context("Cannot create context")?;
     let context = unsafe { context.make_current().map_err(|(_, err)| err) }

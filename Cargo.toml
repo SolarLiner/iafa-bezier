@@ -9,16 +9,17 @@ members = ["violette/violette-low"]
 [dependencies]
 anyhow = "1.0.53"
 bytemuck = { version = "1.7.3", features = ["derive"] }
+crevice = { version = "0.8.0", feature = ["glam"] }
 float-ord = "0.3.2"
-glam = { version = "0.20.2", features = ["bytemuck", "rand", "num-traits"] }
+glam = { version = "0.19.0", features = ["bytemuck", "rand", "num-traits"] }
 glutin = "0.28.0"
 image = "0.24.1"
 num-derive = "0.3.3"
 num-traits = "0.2.14"
 rand = "0.8.5"
-tracing = "0.1.31"
+tracing = "0.1.33"
 tracing-flame = "0.2.0"
-tracing-subscriber = { version = "0.3.9", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.11", features = ["env-filter", "json"] }
 violette-low = { path = "./violette/violette-low", features = ["uniforms-glam", "vertex-glam"] }
 
 [dev-dependencies]

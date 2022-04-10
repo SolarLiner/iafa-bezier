@@ -16,6 +16,7 @@ use iafa_ig_projet::{
     transform::Transform,
     Application,
 };
+use iafa_ig_projet::light::LightBuffer;
 use violette_low::{
     base::bindable::BindableExt,
     buffer::{Buffer, BufferKind},
@@ -27,7 +28,7 @@ use violette_low::{
 struct App {
     surface: BezierSurface,
     bezier_mesh: Option<Mesh>,
-    lights: Buffer<GpuLight>,
+    lights: LightBuffer,
     mat: Material,
     cam: Camera,
     screen_pass: GeometryBuffers,
@@ -79,9 +80,8 @@ impl Application for App {
         Ok(Self {
             surface: cylinder(),
             bezier_mesh: None,
-            lights: Buffer::with_data(
-                BufferKind::Uniform,
-                &[
+            lights: GpuLight::create_buffer(
+                [
                     Light::Directional {
                         color: vec3(2.5, 2.6, 2.1),
                         dir: Vec3::ONE.normalize(),
@@ -90,8 +90,7 @@ impl Application for App {
                         color: vec3(0.7, 0.9, 1.5),
                         dir: vec3(-1., 1., -1.).normalize(),
                     },
-                ]
-                .map(GpuLight::from),
+                ],
             )?,
             mat: Material::create(
                 Texture::from_image(image::open("assets/textures/moon_color.jpg")?.into_rgb32f())?,

@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use anyhow::Context;
+use crevice::std140::AsStd140;
 
 use violette_low::base::bindable::BindableExt;
 use violette_low::buffer::BoundBuffer;
@@ -10,7 +11,7 @@ use violette_low::program::{Linked, Program};
 use violette_low::shader::{Shader, ShaderStage};
 use violette_low::texture::{Texture, TextureUnit};
 
-use crate::light::GpuLight;
+use crate::light::{BoundLightBuffer, GpuLight};
 use crate::{camera::Camera, mesh::Mesh};
 
 pub enum TextureSlot<const N: usize> {
@@ -152,7 +153,7 @@ impl Material {
         &mut self,
         framebuffer: &mut BoundFB,
         camera: &Camera,
-        lights: &mut BoundBuffer<GpuLight>,
+        lights: &mut BoundLightBuffer,
         meshes: &mut [Mesh],
     ) -> anyhow::Result<()> {
         framebuffer.enable_feature(FramebufferFeature::Blending(Blend::SrcAlpha, Blend::One))?; // Additive blending

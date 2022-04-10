@@ -20,16 +20,16 @@ uniform sampler2D normal_map;
 out vec4 out_color;
 
 layout(std140) uniform Light {
-    uint light_kind;
-    vec3 light_pos_dir;
-    vec3 light_color;
-};
+    uint kind;
+    vec3 pos_dir;
+    vec3 color;
+} light;
 
 const uint LIGHT_KIND_POINT = 0u;
 const uint LIGHT_KIND_DIRECTIONAL = 1u;
 const uint LIGHT_KIND_AMBIENT = 2u;
 
-const float M_PI = 3.141562;
+const float M_PI = 3.141592653589793238462;
 const vec3 F0 = vec3(0.04);
 
 vec3 fresnel(float cos_theta, vec3 F0) {
@@ -70,7 +70,7 @@ float smith(vec3 N, vec3 V, vec3 L, float roughness) {
 
 vec3 diffuse_brdf(vec3 H, float D, vec3 N) {
     float attenuation = 1.0 / (D * D);
-    return light_color * attenuation;
+    return light.color * attenuation;
 }
 
 vec3 specular_brdf(vec3 V, vec3 H, vec3 L, float D, vec3 N) {
@@ -117,8 +117,8 @@ void main() {
     vec3 albedo = color;
     #endif
 
-    if(light_kind == LIGHT_KIND_AMBIENT) {
-        out_color = vec4(light_color * albedo, 1.0);
+    if(light.kind == LIGHT_KIND_AMBIENT) {
+        out_color = vec4(light.color * albedo, 1.0);
         return;
     }
 
@@ -127,12 +127,12 @@ void main() {
 
     float light_distance;
     vec3 light_dir;
-    if(light_kind == LIGHT_KIND_POINT) {
-        light_distance = distance(light_pos_dir, v_position);
-        light_dir = normalize(light_pos_dir - v_position);
+    if(light.kind == LIGHT_KIND_POINT) {
+        light_distance = distance(light.pos_dir, v_position);
+        light_dir = normalize(light.pos_dir - v_position);
     } else {
         light_distance = 1.;
-        light_dir = light_pos_dir;
+        light_dir = light.pos_dir;
     }
 
     #ifdef HAS_NORMAL_TEXTURE
@@ -142,7 +142,7 @@ void main() {
     #else
     vec3 normal = v_normal;
     #endif
-    vec3 k = light_color * get_lighting(view_dir, light_dir, normal, light_distance);
+    vec3 k = light.color * get_lighting(view_dir, light_dir, normal, light_distance);
 
     vec3 reflectance = albedo * k;
     out_color = vec4(reflectance, 1.0);

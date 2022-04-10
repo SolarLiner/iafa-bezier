@@ -1,6 +1,11 @@
+use anyhow::Context;
+use crevice::std140;
+use crevice::std140::{AsStd140, DynamicUniform, DynamicUniformStd140, Std140};
 use glam::Vec3;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
+
+use violette_low::buffer::{BoundBuffer, Buffer, BufferKind};
 
 #[derive(Debug, Copy, Clone, FromPrimitive)]
 #[repr(u32)]
@@ -56,38 +61,59 @@ impl From<GpuLight> for Light {
         let kind = LightType::from_u32(light.kind).unwrap();
         match kind {
             LightType::Point => Self::Point {
-                position: light.pos_dir,
-                color: light.color,
+                position: from_std140vec3(light.pos_dir),
+                color: from_std140vec3(light.color),
             },
             LightType::Directional => Self::Directional {
-                dir: light.pos_dir,
-                color: light.color,
+                dir: from_std140vec3(light.pos_dir),
+                color: from_std140vec3(light.color),
             },
-            LightType::Ambient => Self::Ambient { color: light.color },
+            LightType::Ambient => Self::Ambient {
+                color: from_std140vec3(light.color),
+            },
         }
     }
 }
 
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-#[repr(C, packed)]
+#[derive(Debug, Clone, AsStd140)]
+#[repr(align(64))]
 pub struct GpuLight {
     kind: u32,
-    __pad0: [u8; 12],
-    pos_dir: Vec3,
-    __pad1: u32,
-    color: Vec3,
-    __pad2: [u8; 20],
+    pos_dir: std140::Vec3,
+    color: std140::Vec3,
 }
 
 impl From<Light> for GpuLight {
     fn from(l: Light) -> Self {
         Self {
             kind: l.kind() as _,
-            pos_dir: l.pos_dir(),
-            color: l.color(),
-            __pad0: [0; 12],
-            __pad1: 0,
-            __pad2: [0; 20],
+            pos_dir: to_std140vec3(l.pos_dir()),
+            color: to_std140vec3(l.color()),
         }
     }
+}
+
+impl GpuLight {
+    pub fn create_buffer(
+        lights: impl IntoIterator<Item = Light>,
+    ) -> anyhow::Result<LightBuffer> {
+        let data = lights
+            .into_iter()
+            .map(Self::from)
+            .map(|v| v.as_std140())
+            .collect::<Vec<_>>();
+        Buffer::with_data(BufferKind::Uniform, &data).context("Cannot create light buffer")
+    }
+}
+
+pub type LightBuffer = Buffer<<GpuLight as AsStd140>::Output>;
+pub type BoundLightBuffer<'a> = BoundBuffer<'a, <GpuLight as AsStd140>::Output>;
+
+fn from_std140vec3(v: std140::Vec3) -> Vec3 {
+    Vec3::from([v.x, v.y, v.z])
+}
+
+fn to_std140vec3(v: glam::Vec3) -> std140::Vec3 {
+    let [x, y, z] = v.to_array();
+    std140::Vec3 { x, y, z }
 }
