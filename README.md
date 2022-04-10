@@ -58,3 +58,9 @@ bindings au *borrow checker* de Rust) permettrait d'empêcher la compilation de 
 - `rand` : Génération de valeurs aléatoires (car la stdlib se veut minimaliste et n'inclue pas de module de ce type)
 - `tracing`/`tracing-subscriber` : Instrumentation de code et logging structuré
 - `thiserror` : Génération de types enum d'erreur
+
+## Crédits
+
+Textures lunaire: [SVI CGI Moon Kit](https://svs.gsfc.nasa.gov/cgi-bin/details.cgi?aid=4720)
+
+Texture sol: [Texture Haven/Poly Haven (Rob Tuytel)](https://polyhaven.com/a/concrete_floor_painted)

@@ -1,12 +1,10 @@
 #version 330
 
-in vec3 v_position;
-in vec3 v_normal;
+in vec3 v_position; // <- world space
+in vec3 v_normal; // <- world space
 in vec2 v_uv;
 
-uniform mat4 model;
-uniform mat4 view_proj;
-uniform mat4 inv_view_proj;
+uniform vec3 camera_pos;
 
 #ifdef HAS_COLOR_TEXTURE
 uniform sampler2D color;
@@ -15,13 +13,19 @@ uniform vec3 color;
 #endif
 #ifdef HAS_NORMAL_TEXTURE
 uniform sampler2D normal_map;
+uniform float normal_amount = 1.0;
+#endif
+#ifdef HAS_ROUGH_METAL_TEXTURE
+uniform sampler2D rough_metal;
+#else
+uniform vec2 rough_metal;
 #endif
 
 out vec4 out_color;
 
 layout(std140) uniform Light {
     uint kind;
-    vec3 pos_dir;
+    vec3 pos_dir; // <- world space
     vec3 color;
 } light;
 
@@ -68,33 +72,30 @@ float smith(vec3 N, vec3 V, vec3 L, float roughness) {
     return ggx1 * ggx2;
 }
 
-vec3 diffuse_brdf(vec3 H, float D, vec3 N) {
-    float attenuation = 1.0 / (D * D);
+vec3 diffuse_brdf(float distance) {
+    float attenuation = 1.0 / (distance * distance);
     return light.color * attenuation;
 }
 
-vec3 specular_brdf(vec3 V, vec3 H, vec3 L, float D, vec3 N) {
-    float roughness = /* texture(g_rough_metal, v_uv).r */ 0.8;
+vec3 specular_brdf(vec3 V, vec3 H, vec3 L, vec3 N, float distance, float roughness) {
     float NDF = ggx_dist(N, H, roughness);
     float G = smith(N, V, L, roughness);
     float NdotV = max(0.0, dot(N, V));
     float NdotL = max(0.0, dot(N, L));
     vec3 F = fresnel(NdotV, F0);
     vec3 num = NDF * G * F;
-    float denominator = 4.0 * NdotV * NdotL + 1e-4;
+    float denominator = 4.0 * NdotV * NdotL * distance + 1e-4;
     return num/denominator;
 }
 
-vec3 get_lighting(vec3 V, vec3 L, vec3 N, float distance) {
-    float metallic = /* texture(g_rough_metal, v_uv).g */ 0.0;
-
+vec3 get_lighting(vec3 V, vec3 L, vec3 N, float distance, float roughness, float metallic) {
     vec3 H = normalize(V+L);
     vec3 kS = fresnel(max(0.0, dot(H, V)), F0);
     vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-    vec3 specular = specular_brdf(V, H, L, distance, N);
-    vec3 radiance = diffuse_brdf(H, distance, N);
+    vec3 specular = specular_brdf(V, H, L, N, distance, roughness);
+    vec3 radiance = diffuse_brdf(distance);
     float NdotL = max(0.0, dot(N, L));
-    return (kD + specular) * radiance * NdotL;
+    return radiance * (1 - metallic) * NdotL + specular;
 }
 
 mat3 cotangent_frame(vec3 normal, vec3 pos, vec2 uv) {
@@ -117,34 +118,41 @@ void main() {
     vec3 albedo = color;
     #endif
 
-    if(light.kind == LIGHT_KIND_AMBIENT) {
+    if (light.kind == LIGHT_KIND_AMBIENT) {
         out_color = vec4(light.color * albedo, 1.0);
         return;
     }
 
-    vec4 view_ray4 = inv_view_proj * vec4(0.0, 0.0, -1.0, 0.0);
-    vec3 view_dir = view_ray4.xyz;
+    vec3 view_dir = normalize(v_position - camera_pos); // <- world space
 
     float light_distance;
-    vec3 light_dir;
-    if(light.kind == LIGHT_KIND_POINT) {
-        light_distance = distance(light.pos_dir, v_position);
-        light_dir = normalize(light.pos_dir - v_position);
+    vec3 light_dir; // <- world space
+    if (light.kind == LIGHT_KIND_POINT) {
+        light_distance = distance(light.pos_dir, v_position); // <- nominal
+        light_dir = normalize(v_position - light.pos_dir); // <- nominal, world space
     } else {
         light_distance = 1.;
-        light_dir = light.pos_dir;
+        light_dir = -light.pos_dir; // <- nominal, world space
     }
 
     #ifdef HAS_NORMAL_TEXTURE
     mat3 tbn = cotangent_frame(v_normal, v_position, v_uv);
-    vec3 tangent_map = -(texture(normal_map, v_uv).xyz * 2. - 1.);
-    vec3 normal = normalize(tbn * tangent_map);
+    vec3 tangent_map = -(texture(normal_map, v_uv).xyz * 2. - 1.) * vec3(normal_amount, normal_amount, 1.);
+    vec3 normal = normalize(tbn * tangent_map); // <- world space
     #else
-    vec3 normal = v_normal;
+    vec3 normal = v_normal; // <- world space
     #endif
-    vec3 k = light.color * get_lighting(view_dir, light_dir, normal, light_distance);
+
+    #ifdef HAS_ROUGH_METAL_TEXTURE
+    vec2 rm = texture(rough_metal, v_uv).rg;
+    float roughness = rm.r;
+    float metallic = rm.g;
+    #else
+    float roughness = rough_metal.r;
+    float metallic = rough_metal.g;
+    #endif
+    vec3 k = light.color * get_lighting(view_dir, light_dir, normal, light_distance, roughness, metallic);
 
     vec3 reflectance = albedo * k;
     out_color = vec4(reflectance, 1.0);
-    return;
 }

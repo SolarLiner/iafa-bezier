@@ -101,15 +101,20 @@ pub struct Material {
     program: Program<Linked>,
     color_slot: TextureSlot<3>,
     normal_map: Option<Texture<[f32; 3]>>,
+    rough_metal: TextureSlot<2>,
+    normal_amount: f32,
 }
 
 impl Material {
     pub fn create(
         color_slot: impl Into<TextureSlot<3>>,
         normal_map: impl Into<Option<Texture<[f32; 3]>>>,
+        rough_metal: impl Into<TextureSlot<2>>,
     ) -> anyhow::Result<Self> {
         let mut color_slot = color_slot.into();
         let mut normal_map = normal_map.into();
+        let mut rough_metal = rough_metal.into();
+
         let shaders_dir = Path::new("assets").join("shaders");
         let vert_shader = Shader::load(ShaderStage::Vertex, shaders_dir.join("mesh.vert.glsl"))?;
         let frag_shader = {
@@ -119,6 +124,9 @@ impl Material {
             }
             if normal_map.is_some() {
                 builder.define("HAS_NORMAL_TEXTURE");
+            }
+            if let TextureSlot::Texture(_) = &rough_metal {
+                builder.define("HAS_ROUGH_METAL_TEXTURE");
             }
             builder.load(shaders_dir.join("mesh.frag.glsl"))?;
             builder
@@ -140,13 +148,37 @@ impl Material {
                 progbind.uniform("normal_map").unwrap().set(unit)?;
                 tex.set_texture_unit(unit);
             }
+            match &mut rough_metal {
+                TextureSlot::Texture(tex) => {
+                    let unit = TextureUnit(2);
+                    progbind.uniform("rough_metal").unwrap().set(unit)?;
+                    tex.set_texture_unit(unit);
+                }
+                TextureSlot::Color(col) => progbind.uniform("rough_metal").unwrap().set(*col)?,
+            }
             Ok(())
         })?;
         Ok(Self {
             program,
             color_slot,
             normal_map,
+            normal_amount: 1.,
+            rough_metal,
         })
+    }
+
+    pub fn with_normal_amount(mut self, amt: f32) -> anyhow::Result<Material> {
+        self.normal_amount = amt;
+        self.program
+            .with_binding(|prog| {
+                if let Some(loc) = prog.uniform("normal_amount") {
+                    loc.set(self.normal_amount)
+                } else {
+                    Ok(())
+                }
+            })
+            .context("Cannot set normal amount in material")?;
+        Ok(self)
     }
 
     pub fn draw_mesh(
@@ -162,9 +194,9 @@ impl Material {
         let mat_view_proj = camera.projection.matrix() * camera.transform.matrix();
         progbind.uniform("view_proj").unwrap().set(mat_view_proj)?;
         progbind
-            .uniform("inv_view_proj")
+            .uniform("camera_pos")
             .unwrap()
-            .set(mat_view_proj.inverse())?;
+            .set(camera.transform.position)?;
         for light_idx in 0..lights.len() {
             framebuffer.do_clear(ClearBuffer::DEPTH).unwrap();
             progbind
@@ -183,6 +215,11 @@ impl Material {
                     None
                 };
                 let _normtex = if let Some(tex) = &mut self.normal_map {
+                    Some(tex.bind()?)
+                } else {
+                    None
+                };
+                let _rmtex = if let TextureSlot::Texture(tex) = &mut self.rough_metal {
                     Some(tex.bind()?)
                 } else {
                     None

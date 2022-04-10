@@ -44,7 +44,7 @@ impl BezierSurface {
         for j in (0..v).map(|k| (k as f32 + 1.) / v as f32) {
             for i in (0..u).map(|k| (k as f32 + 1.) / u as f32) {
                 let position = self.get_point(i, j);
-                let normal = self.gradient(i, j);
+                let normal = self.gradient(i, j).normalize();
                 let uv = vec2(i, j);
                 vertices.push(Vertex {
                     position,

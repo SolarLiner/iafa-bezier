@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use anyhow::Context;
-use glam::{vec3, Quat, Vec3};
+use glam::{vec2, vec3, Quat, Vec3, Vec3Swizzles};
 use glutin::{dpi::PhysicalSize, event::WindowEvent};
 
+use iafa_ig_projet::light::LightBuffer;
 use iafa_ig_projet::{
     bezier::{curve::BezierCurve, surface::BezierSurface},
     camera::{Camera, Projection},
@@ -16,7 +17,6 @@ use iafa_ig_projet::{
     transform::Transform,
     Application,
 };
-use iafa_ig_projet::light::LightBuffer;
 use violette_low::{
     base::bindable::BindableExt,
     buffer::{Buffer, BufferKind},
@@ -34,32 +34,38 @@ struct App {
     screen_pass: GeometryBuffers,
 }
 
-fn cylinder() -> BezierSurface {
+fn bsurface() -> BezierSurface {
     BezierSurface::new([
-        BezierCurve::new([
-            vec3(1., 1., -1.),
-            vec3(1., 1., 0.),
-            vec3(1., 1., 1.),
-            vec3(0., 1., 1.),
-            vec3(-1., 1., 1.),
-            vec3(-1., 1., 0.),
-            vec3(-1., 1., -1.),
-            vec3(0., 1., -1.),
-            vec3(1., 1., -1.),
-        ])
-        .looping(true),
-        BezierCurve::new([
-            vec3(1., -1., -1.),
-            vec3(1., -1., 0.),
-            vec3(1., -1., 1.),
-            vec3(0., -1., 1.),
-            vec3(-1., -1., 1.),
-            vec3(-1., -1., 0.),
-            vec3(-1., -1., -1.),
-            vec3(0., -1., -1.),
-            vec3(1., -1., -1.),
-        ])
-        .looping(true),
+        BezierCurve::new(
+            [
+                vec2(1., -1.),
+                vec2(0.5, 0.),
+                vec2(0., 1.5),
+                vec2(-0.5, 2.),
+                vec2(-1., 0.5),
+            ]
+            .map(|v| v.extend(-1.)),
+        ),
+        BezierCurve::new(
+            [
+                vec2(1., -0.5),
+                vec2(0.5, 1.),
+                vec2(0., 2.),
+                vec2(-0.5, 1.),
+                vec2(-1., 0.5),
+            ]
+            .map(|v| v.extend(0.)),
+        ),
+        BezierCurve::new(
+            [
+                vec2(1., 0.5),
+                vec2(0.5, 1.5),
+                vec2(0., 1.),
+                vec2(-0.5, 0.5),
+                vec2(-1., 0.),
+            ]
+            .map(|v| v.extend(1.)),
+        ),
     ])
 }
 
@@ -74,30 +80,50 @@ impl Application for App {
                 .viewport(0, 0, size.width as _, size.height as _);
         }
         let mut screen_pass = GeometryBuffers::new(size.cast())?;
-        screen_pass.set_exposure(1.);
+        screen_pass
+            .framebuffer()
+            .with_binding(|frame| {
+                frame.clear_color([0., 0., 0., 1.]);
+                frame
+                    .enable_feature(FramebufferFeature::DepthTest(DepthTestFunction::Less))
+            })?;
+        screen_pass.set_exposure(0.6);
         violette_low::culling(Some(Cull::Back));
 
+        Framebuffer::backbuffer()
+            .with_binding(|frame| {
+                frame.viewport(0, 0, size.width as _, size.height as _);
+                frame.clear_depth(1.0);
+                Ok(())
+            })?;
+
         Ok(Self {
-            surface: cylinder(),
+            surface: bsurface(),
             bezier_mesh: None,
-            lights: GpuLight::create_buffer(
-                [
-                    Light::Directional {
-                        color: vec3(2.5, 2.6, 2.1),
-                        dir: Vec3::ONE.normalize(),
-                    },
-                    Light::Directional {
-                        color: vec3(0.7, 0.9, 1.5),
-                        dir: vec3(-1., 1., -1.).normalize(),
-                    },
-                ],
-            )?,
+            lights: GpuLight::create_buffer([
+                Light::Directional {
+                    color: vec3(2.5, 2.6, 2.1),
+                    dir: vec3(0.3, 0.5, -1.).normalize(),
+                },
+                Light::Directional {
+                    color: vec3(0.9, 1.1, 1.2),
+                    dir: vec3(-1., 1., -1.).normalize(),
+                },
+                Light::Point {
+                    position: vec3(-1., 0.5, 2.),
+                    color: vec3(1., 0.5, 1.3) * 3.,
+                },
+                Light::Ambient {
+                    color: Vec3::ONE * 0.2,
+                },
+            ])?,
             mat: Material::create(
-                Texture::from_image(image::open("assets/textures/moon_color.jpg")?.into_rgb32f())?,
-                Texture::from_image(image::open("assets/textures/moon_normal.png")?.into_rgb32f())?,
-            )?,
+                Texture::load_rgb32f("assets/textures/floor_color.jpg")?,
+                Texture::load_rgb32f("assets/textures/floor_normal.png")?,
+                Texture::load_rg32f("assets/textures/floor_rough_metal.png")?,
+            )?.with_normal_amount(3.)?,
             cam: Camera {
-                transform: Transform::translation(vec3(0., 0.5, -3.)).looking_at(Vec3::ZERO),
+                transform: Transform::translation(vec3(0., 3., -3.)).looking_at(Vec3::Y * 0.5),
                 projection: Projection {
                     width: size.width,
                     height: size.height,
@@ -126,7 +152,10 @@ impl Application for App {
     fn interact(&mut self, event: WindowEvent) {}
 
     fn tick(&mut self, dt: Duration) {
-        self.cam.transform.rotation *= Quat::from_rotation_y(dt.as_secs_f32() * 0.4);
+        //self.cam.transform.rotation *= Quat::from_rotation_y(dt.as_secs_f32() * 0.4);
+        if let Some(mesh) = &mut self.bezier_mesh {
+            mesh.transform.rotation *= Quat::from_rotation_y(dt.as_secs_f32() * 0.4);
+        }
     }
 
     fn render(&mut self) {
@@ -144,7 +173,10 @@ impl Application for App {
             .unwrap();
 
         Framebuffer::backbuffer()
-            .with_binding(|frame| self.screen_pass.draw(frame))
+            .with_binding(|frame| {
+                frame.do_clear(ClearBuffer::DEPTH)?;
+                self.screen_pass.draw(frame)
+            })
             .unwrap();
     }
 }

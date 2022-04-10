@@ -18,7 +18,6 @@ num-derive = "0.3.3"
 num-traits = "0.2.14"
 rand = "0.8.5"
 tracing = "0.1.33"
-tracing-flame = "0.2.0"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter", "json"] }
 violette-low = { path = "./violette/violette-low", features = ["uniforms-glam", "vertex-glam"] }
 

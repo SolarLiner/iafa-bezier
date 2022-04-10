@@ -2,12 +2,13 @@ use std::time::Duration;
 
 use anyhow::Context;
 use crevice::std140::AsStd140;
-use glam::{vec3, Quat, Vec2, Vec3};
+use glam::{vec2, vec3, Quat, Vec2, Vec3};
 use glutin::{
     dpi::PhysicalSize,
     event::{ElementState, MouseButton, WindowEvent},
 };
 
+use iafa_ig_projet::light::LightBuffer;
 use iafa_ig_projet::{
     camera::{Camera, Projection},
     gbuffers::GeometryBuffers,
@@ -17,7 +18,6 @@ use iafa_ig_projet::{
     transform::Transform,
     Application,
 };
-use iafa_ig_projet::light::LightBuffer;
 use violette_low::{
     base::bindable::BindableExt,
     buffer::{Buffer, BufferKind},
@@ -44,19 +44,19 @@ impl Application for App {
         let material = Material::create(
             Texture::from_image(image::open("assets/textures/moon_color.jpg")?.into_rgb32f())?,
             Texture::from_image(image::open("assets/textures/moon_normal.png")?.into_rgb32f())?,
-        )?;
-        let lights = GpuLight::create_buffer(
-            [
-                Light::Directional {
-                    dir: Vec3::X,
-                    color: Vec3::ONE * 12.,
-                },
-                Light::Directional {
-                    dir: Vec3::Z,
-                    color: vec3(1., 1.5, 2.),
-                },
-            ],
-        )?;
+            [0.8, 0.0],
+        )?
+        .with_normal_amount(0.2)?;
+        let lights = GpuLight::create_buffer([
+            Light::Directional {
+                dir: Vec3::X,
+                color: Vec3::ONE * 12.,
+            },
+            Light::Directional {
+                dir: Vec3::Z,
+                color: vec3(1., 1.5, 2.),
+            },
+        ])?;
         let camera = Camera {
             transform: Transform::translation(vec3(0., -1., -4.)).looking_at(Vec3::ZERO),
             projection: Projection {
