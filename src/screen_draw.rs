@@ -4,13 +4,13 @@ use anyhow::Context;
 use glam::{const_vec2, Vec2};
 
 use violette_low::{
-    vertex::DrawMode,
-    program::{Uniform, UniformLocation},
     base::bindable::BindableExt,
     buffer::{Buffer, BufferKind},
     framebuffer::BoundFB,
     program::{Linked, Program},
-    vertex::{AsVertexAttributes, VertexArray}
+    program::{Uniform, UniformLocation},
+    vertex::DrawMode,
+    vertex::{AsVertexAttributes, VertexArray},
 };
 
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]

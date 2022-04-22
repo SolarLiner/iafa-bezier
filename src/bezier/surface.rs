@@ -29,7 +29,9 @@ impl BezierSurface {
     }
 
     pub fn get_point(&self, u: f32, v: f32) -> Vec3 {
-        BezierCurve::new(self.profile.iter().map(|curve| curve.get_point(u))).looping(self.looping).get_point(v)
+        BezierCurve::new(self.profile.iter().map(|curve| curve.get_point(u)))
+            .looping(self.looping)
+            .get_point(v)
     }
 
     pub fn gradient(&self, u: f32, v: f32) -> Vec3 {

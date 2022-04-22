@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-
 use std::{path::Path, time::Duration};
 
 use glam::{vec2, Vec2};

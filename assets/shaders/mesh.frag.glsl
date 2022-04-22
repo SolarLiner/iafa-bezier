@@ -1,7 +1,7 @@
 #version 330
 
-in vec3 v_position; // <- world space
-in vec3 v_normal; // <- world space
+in vec3 v_position;// <- world space
+in vec3 v_normal;// <- world space
 in vec2 v_uv;
 
 uniform vec3 camera_pos;
@@ -25,7 +25,7 @@ out vec4 out_color;
 
 layout(std140) uniform Light {
     uint kind;
-    vec3 pos_dir; // <- world space
+    vec3 pos_dir;// <- world space
     vec3 color;
 } light;
 
@@ -123,24 +123,24 @@ void main() {
         return;
     }
 
-    vec3 view_dir = normalize(v_position - camera_pos); // <- world space
+    vec3 view_dir = normalize(v_position - camera_pos);// <- world space
 
     float light_distance;
-    vec3 light_dir; // <- world space
+    vec3 light_dir;// <- world space
     if (light.kind == LIGHT_KIND_POINT) {
-        light_distance = distance(light.pos_dir, v_position); // <- nominal
-        light_dir = normalize(v_position - light.pos_dir); // <- nominal, world space
+        light_distance = distance(light.pos_dir, v_position);// <- nominal
+        light_dir = normalize(v_position - light.pos_dir);// <- nominal, world space
     } else {
         light_distance = 1.;
-        light_dir = -light.pos_dir; // <- nominal, world space
+        light_dir = -light.pos_dir;// <- nominal, world space
     }
 
-    #ifdef HAS_NORMAL_TEXTURE
+        #ifdef HAS_NORMAL_TEXTURE
     mat3 tbn = cotangent_frame(v_normal, v_position, v_uv);
     vec3 tangent_map = -(texture(normal_map, v_uv).xyz * 2. - 1.) * vec3(normal_amount, normal_amount, 1.);
-    vec3 normal = normalize(tbn * tangent_map); // <- world space
+    vec3 normal = normalize(tbn * tangent_map);// <- world space
     #else
-    vec3 normal = v_normal; // <- world space
+    vec3 normal = v_normal;// <- world space
     #endif
 
     #ifdef HAS_ROUGH_METAL_TEXTURE

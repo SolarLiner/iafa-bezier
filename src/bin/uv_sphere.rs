@@ -1,8 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context;
-use crevice::std140::AsStd140;
-use glam::{vec2, vec3, Quat, Vec2, Vec3};
+use glam::{vec3, Quat, Vec2, Vec3};
 use glutin::{
     dpi::PhysicalSize,
     event::{ElementState, MouseButton, WindowEvent},
@@ -20,7 +19,6 @@ use iafa_ig_projet::{
 };
 use violette_low::{
     base::bindable::BindableExt,
-    buffer::{Buffer, BufferKind},
     framebuffer::{ClearBuffer, DepthTestFunction, Framebuffer, FramebufferFeature},
     texture::Texture,
     Cull,

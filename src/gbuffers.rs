@@ -1,8 +1,9 @@
 use glutin::dpi::PhysicalSize;
+
 use violette_low::{
     base::bindable::BindableExt,
     framebuffer::{BoundFB, ClearBuffer, Framebuffer},
-    texture::{DepthStencil, SampleMode, Texture, TextureUnit, Dimension},
+    texture::{DepthStencil, Dimension, SampleMode, Texture, TextureUnit},
 };
 
 use crate::screen_draw::ScreenDraw;
@@ -17,24 +18,14 @@ pub struct GeometryBuffers {
 
 impl GeometryBuffers {
     pub fn new(size: PhysicalSize<u32>) -> anyhow::Result<Self> {
-        let mut gcolor = Texture::new(
-            size.width,
-            size.height,
-            1,
-            Dimension::D2,
-        );
+        let mut gcolor = Texture::new(size.width, size.height, 1, Dimension::D2);
         gcolor.with_binding(|tex| {
             tex.filter_min(SampleMode::Linear)?;
             tex.filter_mag(SampleMode::Linear)?;
             tex.reserve_memory()
         })?;
 
-        let mut gdepth = Texture::new(
-            size.width,
-            size.height,
-            1,
-            Dimension::D2,
-        );
+        let mut gdepth = Texture::new(size.width, size.height, 1, Dimension::D2);
         gdepth.with_binding(|tex| {
             tex.filter_min(SampleMode::Linear)?;
             tex.filter_mag(SampleMode::Linear)?;

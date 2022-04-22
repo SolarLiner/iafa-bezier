@@ -2,16 +2,14 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use anyhow::Context;
-use crevice::std140::AsStd140;
 
 use violette_low::base::bindable::BindableExt;
-use violette_low::buffer::BoundBuffer;
 use violette_low::framebuffer::{Blend, BoundFB, ClearBuffer, FramebufferFeature};
 use violette_low::program::{Linked, Program};
 use violette_low::shader::{Shader, ShaderStage};
 use violette_low::texture::{Texture, TextureUnit};
 
-use crate::light::{BoundLightBuffer, GpuLight};
+use crate::light::BoundLightBuffer;
 use crate::{camera::Camera, mesh::Mesh};
 
 pub enum TextureSlot<const N: usize> {
@@ -31,6 +29,7 @@ impl<const N: usize> From<[f32; N]> for TextureSlot<N> {
     }
 }
 
+#[allow(dead_code)]
 impl<const N: usize> TextureSlot<N> {
     fn set_texture_unit(&mut self, unit: TextureUnit) {
         if let Self::Texture(tex) = self {

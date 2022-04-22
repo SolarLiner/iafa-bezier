@@ -76,9 +76,10 @@ impl Lerp<f32> for Vec3 {
 
 #[cfg(test)]
 mod tests {
-    use super::BezierCurve;
     use glam::{vec2, Vec2};
     use test_log::test;
+
+    use super::BezierCurve;
 
     #[test]
     fn simple_curve() {

@@ -8,11 +8,11 @@
 4. Lancer la compilation avec `cargo build --bin <binary>` ou le lancement direct de l'application (après compilation
    automatique) avec `cargo run --bin <binary>`.
 
-   `<binary>` est à choisir parmi :
-   - `uv_sphere`: Démonstration du pipeline de rendu avec une sphère UV générée à la volée
-   - `bezier`: Test interactif de courbes de Bézier en 2D
-   - `bsurf`: Projet final, affichage d'une surface de bézier triangulée sur fond uni avec un éclairage trois points
-   
+   `<binary>` est à choisir parmi :
+    - `uv_sphere`: Démonstration du pipeline de rendu avec une sphère UV générée à la volée
+    - `bezier`: Test interactif de courbes de Bézier en 2D
+    - `bsurf`: Projet final, affichage d'une surface de bézier triangulée sur fond uni avec un éclairage trois points
+
    il est aussi possible d'ajouter l'option `--release` pour compiler le projet avec optimisations, ce qui améliore
    grandement les temps de chargements.
 
@@ -20,16 +20,20 @@
 
 ### Séparation bibliothèque/application
 
-Le projet se divise en deux grandes parties - les abstractions OpenGL et les objets "haut-niveau" qui orchestrent le rendu.
+Le projet se divise en deux grandes parties - les abstractions OpenGL et les objets "haut-niveau" qui orchestrent le
+rendu.
 Rust se voulant un langage "safe", il est judicieux d'encapsuler les appels *unsafe* (dont les appels FFI en font parti)
 derrière une API *safe*. Ceci est fait dans la bibliothèque disponible dans `violette/violette-low`.
 
-`violette` encapsule via le mécanisme RAII (ce qui est beaucoup plus facile avec Rust qui n'a pas de *copy-constructor* ;))
+`violette` encapsule via le mécanisme RAII (ce qui est beaucoup plus facile avec Rust qui n'a pas de *copy-constructor*
+;))
 la gestion des ressources GPU, et fournit un moyen de gérer les bindings OpenGL avec des types "gardes", ce qui permet à
 l'API d'exposer leurs besoins en bindings à travers les signatures des fonctions (ceci équivaut aussi pour les types
-haut-niveau). Par exemple, pour le rendu, un `Material` à besoin d'un binding de buffer de lumières pour pouvoir exécuter
-la phase de rendu en étant éclairé par celles-ci ; aussi, elle demande un Framebuffer actif qui sera la cible de la
-phase de rendu. Ces gardes permettent de s'assurer que les ressources sont bien disponibles aux bons endroits quand on en
+haut-niveau). Par exemple, pour le rendu, un `Material` à besoin d'un binding de buffer de lumières pour pouvoir
+exécuter
+la phase de rendu en étant éclairé par celles-ci ; aussi, elle demande un Framebuffer actif qui sera la cible de la
+phase de rendu. Ces gardes permettent de s'assurer que les ressources sont bien disponibles aux bons endroits quand on
+en
 a besoin. Aussi, les méthodes qui agissent sur ces bindings ne sont disponibles que lorsqu'un binding a été acquis.
 
 De ce fait, tout le rendu propre au projet se fait via ces objets Rust, sans passer directement par les fonctions OpenGL
@@ -37,14 +41,15 @@ De ce fait, tout le rendu propre au projet se fait via ces objets Rust, sans pas
 unsafe écrit dans un projet.
 
 Une limitation de l'architecture actuelle est qu'il est tout à fait possible de créer deux bindings pour deux ressources
-d'un même type ; toutes les méthodes s'appliqueront sur le dernier binding créé, même si elles sont appelées avec le
+d'un même type ; toutes les méthodes s'appliqueront sur le dernier binding créé, même si elles sont appelées avec le
 binding précédent. Une factorisation du code (avec un objet de type contexte qui permettrait d'associer l'état des
 bindings au *borrow checker* de Rust) permettrait d'empêcher la compilation de ce type de code.
 
 ### Bibliothèques externes
 
 - `anyhow`: Gestion d'erreurs via le type `Result` de Rust ; permet de passer plus facilement les erreurs OpenGL
-- `bytemuck` : Interface *safe* de manipulation de la mémoire (cast de valeurs en octets, notamment pour l'interfaçage GPU) 
+- `bytemuck` : Interface *safe* de manipulation de la mémoire (cast de valeurs en octets, notamment pour l'interfaçage
+  GPU)
 - `crevice` : Implémentation du layout `std140` automatique
 - `duplicate` : Macro de duplication de code paramétrée
 - `float-ord` : Implémentation d'un ordre total pour les flottants (par défaut Rust considère que INF/NaN ne sont pas

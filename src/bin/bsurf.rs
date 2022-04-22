@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use anyhow::Context;
-use glam::{vec2, vec3, Quat, Vec3, Vec3Swizzles};
+use glam::{vec2, vec3, Quat, Vec3};
 use glutin::{dpi::PhysicalSize, event::WindowEvent};
 
 use iafa_ig_projet::light::LightBuffer;
@@ -13,15 +12,13 @@ use iafa_ig_projet::{
     material::Material,
     mesh::Mesh,
     run,
-    screen_draw::ScreenDraw,
     transform::Transform,
     Application,
 };
 use violette_low::{
     base::bindable::BindableExt,
-    buffer::{Buffer, BufferKind},
     framebuffer::{ClearBuffer, DepthTestFunction, Framebuffer, FramebufferFeature},
-    texture::{Dimension, SampleMode, Texture, TextureUnit},
+    texture::Texture,
     Cull,
 };
 
@@ -80,22 +77,18 @@ impl Application for App {
                 .viewport(0, 0, size.width as _, size.height as _);
         }
         let mut screen_pass = GeometryBuffers::new(size.cast())?;
-        screen_pass
-            .framebuffer()
-            .with_binding(|frame| {
-                frame.clear_color([0., 0., 0., 1.]);
-                frame
-                    .enable_feature(FramebufferFeature::DepthTest(DepthTestFunction::Less))
-            })?;
+        screen_pass.framebuffer().with_binding(|frame| {
+            frame.clear_color([0., 0., 0., 1.]);
+            frame.enable_feature(FramebufferFeature::DepthTest(DepthTestFunction::Less))
+        })?;
         screen_pass.set_exposure(0.6);
         violette_low::culling(Some(Cull::Back));
 
-        Framebuffer::backbuffer()
-            .with_binding(|frame| {
-                frame.viewport(0, 0, size.width as _, size.height as _);
-                frame.clear_depth(1.0);
-                Ok(())
-            })?;
+        Framebuffer::backbuffer().with_binding(|frame| {
+            frame.viewport(0, 0, size.width as _, size.height as _);
+            frame.clear_depth(1.0);
+            Ok(())
+        })?;
 
         Ok(Self {
             surface: bsurface(),
@@ -121,7 +114,8 @@ impl Application for App {
                 Texture::load_rgb32f("assets/textures/floor_color.jpg")?,
                 Texture::load_rgb32f("assets/textures/floor_normal.png")?,
                 Texture::load_rg32f("assets/textures/floor_rough_metal.png")?,
-            )?.with_normal_amount(3.)?,
+            )?
+            .with_normal_amount(3.)?,
             cam: Camera {
                 transform: Transform::translation(vec3(0., 3., -3.)).looking_at(Vec3::Y * 0.5),
                 projection: Projection {
@@ -149,7 +143,7 @@ impl Application for App {
             .viewport(0, 0, size.width as _, size.height as _);
     }
 
-    fn interact(&mut self, event: WindowEvent) {}
+    fn interact(&mut self, _event: WindowEvent) {}
 
     fn tick(&mut self, dt: Duration) {
         //self.cam.transform.rotation *= Quat::from_rotation_y(dt.as_secs_f32() * 0.4);

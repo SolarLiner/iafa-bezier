@@ -1,6 +1,6 @@
 use anyhow::Context;
 use crevice::std140;
-use crevice::std140::{AsStd140, DynamicUniform, DynamicUniformStd140, Std140};
+use crevice::std140::AsStd140;
 use glam::Vec3;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -94,9 +94,7 @@ impl From<Light> for GpuLight {
 }
 
 impl GpuLight {
-    pub fn create_buffer(
-        lights: impl IntoIterator<Item = Light>,
-    ) -> anyhow::Result<LightBuffer> {
+    pub fn create_buffer(lights: impl IntoIterator<Item = Light>) -> anyhow::Result<LightBuffer> {
         let data = lights
             .into_iter()
             .map(Self::from)

@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Context;
-use glutin::event::{ElementState, ScanCode, VirtualKeyCode};
+use glutin::event::{ElementState, VirtualKeyCode};
 use glutin::window::Fullscreen;
 use glutin::{
     dpi::PhysicalSize,
@@ -132,7 +132,6 @@ pub fn run<App: 'static + Application>(title: &str) -> anyhow::Result<()> {
                     ..
                 } => {
                     *control_flow = ControlFlow::Exit;
-                    return;
                 }
                 WindowEvent::KeyboardInput {
                     input:
